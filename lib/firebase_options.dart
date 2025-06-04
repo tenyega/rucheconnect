@@ -20,6 +20,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
+
       apiKey: "AIzaSyCz-9yrbpQbxzWQV-eWY3F0xInzbIlRY6g",
       authDomain: "rucheconnect-a4363.firebaseapp.com",
       databaseURL: "https://rucheconnect-a4363-default-rtdb.europe-west1.firebasedatabase.app",
@@ -27,6 +28,7 @@ class DefaultFirebaseOptions {
       storageBucket: "rucheconnect-a4363.firebasestorage.app",
       messagingSenderId: "147038649239",
       appId: "1:147038649239:web:0d6b9e38eb48b2a54fa2d2"
+
   );
 
 }

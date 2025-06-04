@@ -176,6 +176,7 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+<<<<<<< HEAD
   http:
     dependency: "direct main"
     description:
@@ -184,6 +185,8 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+=======
+>>>>>>> 8627a8a1de90d9578adc39174c73a33599c0b042
   http_parser:
     dependency: transitive
     description:

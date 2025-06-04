@@ -27,6 +27,7 @@ then i did
 To update the dependencies.
 
 ## Email test@gmail.com
+<<<<<<< HEAD
 ### Password 123456
 
 
@@ -41,3 +42,6 @@ To update the dependencies.
 - adding new apiculteur adds api8 instead of api_008 (apiculteur_listpage.dart)
 - for the admin i need to see for the profile page. the password change is also not working as its not being stored inside the real time database. its only handled with the auth of firebase. 
 - 
+=======
+### Password 123456
+>>>>>>> 8627a8a1de90d9578adc39174c73a33599c0b042
