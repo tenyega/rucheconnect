@@ -1,0 +1,5 @@
+{
+    "rewrites": [
+        { "source": "/app.apk", "destination": "/app-release.apk" }
+    ]
+}
