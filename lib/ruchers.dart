@@ -33,6 +33,7 @@ class RucherInfo {
   final String description;
   final String picUrl;
   final int rucheCount;
+  final List<RucheInfo> ruches;
   final int alertCount;
   bool isExpanded;
 
@@ -42,6 +43,7 @@ class RucherInfo {
     required this.description,
     required this.picUrl,
     required this.rucheCount,
+    required this.ruches,
     this.alertCount = 0,
     this.isExpanded = false,
   });
@@ -52,6 +54,156 @@ class RucherApiculteurView extends StatefulWidget {
 
   @override
   State<RucherApiculteurView> createState() => _RucherApiculteurViewState();
+}
+
+// Model class for ruche info
+class RucheInfo {
+  final String id;
+  final String rucherId;
+  final String apiculteurId;
+  final Map<String, RucheDataPoint> dataPoints;
+  bool isExpanded;
+
+  RucheInfo({
+    required this.id,
+    required this.rucherId,
+    required this.apiculteurId,
+    required this.dataPoints,
+    this.isExpanded = false,
+  });
+
+  bool get hasActiveAlert {
+    final latestData = getLatestDataPoint();
+    if (latestData == null) return false;
+
+    final alert = latestData.alert ?? 0;
+    final couvercle = latestData.couvercle ?? 0;
+
+    // Alert condition: alerts are enabled AND lid is open
+    return (alert == 1 && couvercle == 1);
+  }
+
+  RucheDataPoint? getLatestDataPoint() {
+    if (dataPoints.isEmpty) return null;
+
+    String? bestKey;
+    RucheDataPoint? bestDataPoint;
+    DateTime? latestTimestamp;
+
+    // Sort entries by timestamp, then by key as tie-breaker
+    var sortedEntries = dataPoints.entries.toList();
+    sortedEntries.sort((a, b) {
+      // First, compare by timestamp
+      int timestampComparison = a.value.timestamp.compareTo(b.value.timestamp);
+      if (timestampComparison != 0) {
+        return timestampComparison;
+      }
+
+      // If timestamps are equal, use the key as tie-breaker (higher key wins)
+      int aKey = int.tryParse(a.key) ?? 0;
+      int bKey = int.tryParse(b.key) ?? 0;
+      return aKey.compareTo(bKey);
+    });
+
+    // Return the last (most recent) entry
+    if (sortedEntries.isNotEmpty) {
+      return sortedEntries.last.value;
+    }
+
+    return null;
+  }
+
+  String? getLatestDataPointKey() {
+    if (dataPoints.isEmpty) return null;
+
+    String? bestKey;
+    DateTime? latestTimestamp;
+
+    // Sort entries by timestamp, then by key as tie-breaker
+    var sortedEntries = dataPoints.entries.toList();
+    sortedEntries.sort((a, b) {
+      // First, compare by timestamp
+      int timestampComparison = a.value.timestamp.compareTo(b.value.timestamp);
+      if (timestampComparison != 0) {
+        return timestampComparison;
+      }
+
+      // If timestamps are equal, use the key as tie-breaker (higher key wins)
+      int aKey = int.tryParse(a.key) ?? 0;
+      int bKey = int.tryParse(b.key) ?? 0;
+      return aKey.compareTo(bKey);
+    });
+
+    // Return the key of the last (most recent) entry
+    if (sortedEntries.isNotEmpty) {
+      return sortedEntries.last.key;
+    }
+
+    return null;
+  }
+
+  bool get alertActive {
+    final latestData = getLatestDataPoint();
+    if (latestData == null) return false;
+
+    // Alert is "active/enabled" when the alert flag is 1
+    // This doesn't mean there's currently an alert, just that alerts are enabled
+    return (latestData.alert == 1);
+  }
+}
+
+// Data model for individual ruche data points
+class RucheDataPoint {
+  final DateTime timestamp;
+  final int temperature;
+  final int humidity;
+  final int? couvercle; // 0 = closed, 1 = open
+  final int? alert; // 0 = no alert, 1 = alert
+
+  RucheDataPoint({
+    required this.timestamp,
+    required this.temperature,
+    required this.humidity,
+    required this.couvercle,
+    required this.alert,
+  });
+
+  factory RucheDataPoint.fromString(String dataString) {
+    final parts = dataString.split('/');
+    String dateTimeStr = parts[0];
+
+    // Remove the leading '47' which seems to be a prefix in your data
+    if (dateTimeStr.startsWith('47')) {
+      dateTimeStr = dateTimeStr.substring(2);
+    }
+
+    // Handle different timestamp formats
+    DateTime timestamp;
+    try {
+      if (dateTimeStr.endsWith('Z') && !dateTimeStr.contains('.')) {
+        // Format like "2025-05-12T20:38:10Z" - add milliseconds for consistency
+        dateTimeStr = dateTimeStr.replaceAll('Z', '.000Z');
+      }
+      timestamp = DateTime.parse(dateTimeStr);
+    } catch (e) {
+      print('Error parsing timestamp "$dateTimeStr": $e');
+      // Fallback to current time if parsing fails
+      timestamp = DateTime.now();
+    }
+
+    final int temperature = int.tryParse(parts[1]) ?? 0;
+    final int humidity = int.tryParse(parts[2]) ?? 0;
+    final int couvercle = parts.length > 3 ? (int.tryParse(parts[3]) ?? 0) : 0;
+    final int alert = parts.length > 4 ? (int.tryParse(parts[4]) ?? 0) : 0;
+
+    return RucheDataPoint(
+      timestamp: timestamp,
+      temperature: temperature,
+      humidity: humidity,
+      couvercle: couvercle,
+      alert: alert,
+    );
+  }
 }
 
 class _RucherApiculteurViewState extends State<RucherApiculteurView> {
@@ -75,16 +227,54 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
     });
   }
 
+  // Helper method to load ruches data for a rucher
+  List<RucheInfo> _loadRuchesForRucher(Map<dynamic, dynamic> rucherData, String rucherId, String apiculteurId) {
+    List<RucheInfo> ruches = [];
+
+    rucherData.forEach((key, value) {
+      if (key.toString().startsWith('ruche') && value is Map<dynamic, dynamic>) {
+        // Parse ruche data points
+        Map<String, RucheDataPoint> dataPoints = {};
+
+        value.forEach((dataKey, dataValue) {
+          if (dataValue is String && dataValue.contains('/')) {
+            try {
+              dataPoints[dataKey.toString()] = RucheDataPoint.fromString(dataValue);
+            } catch (e) {
+              print('Error parsing ruche data: $e');
+            }
+          }
+        });
+
+        ruches.add(RucheInfo(
+          id: key.toString(),
+          rucherId: rucherId,
+          apiculteurId: apiculteurId,
+          dataPoints: dataPoints,
+        ));
+      }
+    });
+
+    return ruches;
+  }
+
   // Get total active alerts across all ruchers - IMPROVED VERSION
+  bool _hasActiveAlert(RucheInfo ruche) {
+    // Use the new hasActiveAlert getter from RucheInfo
+    return ruche.hasActiveAlert;
+  }
+
   int _getTotalActiveAlerts() {
     int totalAlerts = 0;
     for (var apiculteur in _apiculteurs) {
       for (var rucher in apiculteur.ruchers) {
-        totalAlerts += rucher.alertCount;
+        for (var ruche in rucher.ruches) {
+          if (_hasActiveAlert(ruche)) {
+            totalAlerts++;
+          }
+        }
       }
     }
-    // Debug print to console
-    print('Total active alerts across all ruchers: $totalAlerts');
     return totalAlerts;
   }
 
@@ -151,6 +341,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
     print('=== END ALERT CHECK ===');
     return alertCount;
   }
+
   Future<void> _checkUserRole() async {
     final User? currentUser = FirebaseAuth.instance.currentUser;
 
@@ -274,6 +465,9 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
               }
             });
 
+            // Load ruches data for this rucher
+            List<RucheInfo> ruches = _loadRuchesForRucher(rValue, rKey.toString(), apiculteurId);
+
             // Count alerts in this rucher
             int alertCount = _countRucherAlerts(rValue);
 
@@ -286,6 +480,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
               description: rValue['desc'] ?? '',
               picUrl: rValue['pic'] ?? '',
               rucheCount: rucheCount,
+              ruches: ruches, // Now providing the required parameter
               alertCount: alertCount,
               isExpanded: false,
             ));
@@ -340,6 +535,9 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                     }
                   });
 
+                  // Load ruches data for this rucher
+                  List<RucheInfo> ruches = _loadRuchesForRucher(rValue, rKey.toString(), key.toString());
+
                   // Count alerts in this rucher
                   int alertCount = _countRucherAlerts(rValue);
 
@@ -352,6 +550,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                     description: rValue['desc'] ?? '',
                     picUrl: rValue['pic'] ?? '',
                     rucheCount: rucheCount,
+                    ruches: ruches, // Now providing the required parameter
                     alertCount: alertCount,
                     isExpanded: false,
                   ));
@@ -599,267 +798,259 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
         ),
       );
     }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_userRole == UserRole.admin ? 'Listes des Ruchers (Admin)' : 'Mes Ruchers'),
-        actions: [
-          // Add refresh button in the AppBar
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-              });
-              if (_userRole == UserRole.admin) {
-                _loadApiculteurs();
-              } else {
-                _loadCurrentApiculteur(FirebaseAuth.instance.currentUser?.email ?? '');
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Liste des ruchers actualisés... '), duration: Duration(seconds: 1)),
-              );
-            },
-            tooltip: 'Refresh Data',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // IMPROVED ALERT BANNER - More prominent and better styling
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            height: _getTotalActiveAlerts() > 0 ? 80 : 0,
-            child: _getTotalActiveAlerts() > 0
-                ? Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.red.shade100, Colors.red.shade50],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.shade300, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.shade200.withOpacity(0.5),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(Icons.warning_amber, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-
-                        Text(
-                          '${_getTotalActiveAlerts()} ruche(s) en alerte - Vol en cours!',
-                          style: TextStyle(
-                            color: Colors.red.shade800,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.error, color: Colors.red.shade700, size: 28),
-                ],
-              ),
-            )
-                : const SizedBox.shrink(),
-          ),
-          // List of apiculteurs and ruchers
-          Expanded(
-            child: ListView.builder(
-              itemCount: _apiculteurs.length,
-              itemBuilder: (context, index) {
-                final apiculteur = _apiculteurs[index];
-
-                // Calculate total alerts for this apiculteur
-                int apiculteurAlerts = apiculteur.ruchers.fold(0, (sum, rucher) => sum + rucher.alertCount);
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                  elevation: apiculteurAlerts > 0 ? 4 : 2,
-                  color: apiculteurAlerts > 0 ? Colors.red.shade50 : null,
-                  child: ExpansionTile(
-                    title: Row(
-                      children: [
-                        Text('${apiculteur.prenom} ${apiculteur.nom}'),
-                        if (apiculteurAlerts > 0) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '⚠️ $apiculteurAlerts',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    leading: Icon(
-                      Icons.person,
-                      color: apiculteurAlerts > 0 ? Colors.red : null,
-                    ),
-                    subtitle: Text(
-                      '${apiculteur.ruchers.length} ruchers' +
-                          (apiculteurAlerts > 0 ? ' - $apiculteurAlerts alerte(s)' : ''),
-                      style: TextStyle(
-                        color: apiculteurAlerts > 0 ? Colors.red.shade700 : null,
-                        fontWeight: apiculteurAlerts > 0 ? FontWeight.w600 : null,
-                      ),
-                    ),
-                    trailing: _userRole == UserRole.admin ||
-                        (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur)
-                        ? IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () => _addRucher(apiculteur),
-                      tooltip: 'Add Rucher',
-                    )
-                        : null,
-                    initiallyExpanded: apiculteur.isExpanded || apiculteurAlerts > 0, // Auto-expand if alerts
-                    onExpansionChanged: (expanded) {
-                      setState(() {
-                        apiculteur.isExpanded = expanded;
-                      });
-                    },
-                    children: apiculteur.ruchers.map((rucher) {
-                      return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                          elevation: rucher.alertCount > 0 ? 3 : 1,
-                          color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                            ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Image(
-                              image: AssetImage('assets/${rucher.picUrl}'),
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                              Row(
-                              children: [
-                              Text(
-                              rucher.id,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
-                                ),
-                              ),
-                              // Enhanced alert indicator
-                              if (rucher.alertCount > 0) ...[
-                          const SizedBox(width: 8),
-                      Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                      BoxShadow(
-                      color: Colors.red.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 2,
-                      ),
-                      ],
-                      ),
-                      ),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text('📍 ${rucher.address}'),
-                                    Text('📝 ${rucher.description}'),
-                                    Text('🐝 Ruches: ${rucher.rucheCount}'),
-                                    // Show alert text if there are alerts
-                                    if (rucher.alertCount > 0)
-                                      Text(
-                                        '🚨 ${rucher.alertCount} alerte(s) active(s)',
-                                        style: TextStyle(
-                                          color: Colors.red.shade700,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              // Only show edit/delete buttons for admin or the owner apiculteur
-                              if (_userRole == UserRole.admin ||
-                                  (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur))
-                                Column(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _editRucher(rucher),
-                                      tooltip: 'Edit Rucher',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () => _deleteRucher(rucher),
-                                      tooltip: 'Delete Rucher',
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_userRole == UserRole.admin ? 'Listes des Ruchers (Admin)' : 'Mes Ruchers'),
+          actions: [
+            // Add refresh button in the AppBar
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                });
+                if (_userRole == UserRole.admin) {
+                  _loadApiculteurs();
+                } else {
+                  _loadCurrentApiculteur(FirebaseAuth.instance.currentUser?.email ?? '');
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Liste des ruchers actualisés... '), duration: Duration(seconds: 1)),
                 );
               },
+              tooltip: 'Refresh Data',
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+          ],
+        ),
+        body: Column(
+          children: [
+            // IMPROVED ALERT BANNER - More prominent and better styling
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: _getTotalActiveAlerts() > 0 ? 80 : 0,
+              child: _getTotalActiveAlerts() > 0
+                  ? Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade100, Colors.red.shade50],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade300, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.shade200.withOpacity(0.5),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(Icons.warning_amber, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '⚠️ ${_getTotalActiveAlerts()} ruche(s) en alerte - Vol de miel détecté!',
+                        style: TextStyle(
+                          color: Colors.red.shade800,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.error, color: Colors.red.shade700, size: 28),
+                  ],
+                ),
+              )
+                  : const SizedBox.shrink(),
+            ),
+            // List of apiculteurs and ruchers
+            Expanded(
+              child: ListView.builder(
+                itemCount: _apiculteurs.length,
+                itemBuilder: (context, index) {
+                  final apiculteur = _apiculteurs[index];
 
-// You can replace the existing RucherListContent with this new implementation
-class RucherListContent extends StatelessWidget {
-  const RucherListContent({Key? key}) : super(key: key);
+                  // Calculate total alerts for this apiculteur
+                  int apiculteurAlerts = apiculteur.ruchers.fold(0, (sum, rucher) => sum + rucher.alertCount);
 
-  @override
-  Widget build(BuildContext context) {
-    return const RucherApiculteurView();
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                    elevation: apiculteurAlerts > 0 ? 4 : 2,
+                    color: apiculteurAlerts > 0 ? Colors.red.shade50 : null,
+                    child: ExpansionTile(
+                      title: Row(
+                        children: [
+                          Text('${apiculteur.prenom} ${apiculteur.nom}'),
+                          if (apiculteurAlerts > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '⚠️ $apiculteurAlerts',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      leading: Icon(
+                        Icons.person,
+                        color: apiculteurAlerts > 0 ? Colors.red : null,
+                      ),
+                      subtitle: Text(
+                        '${apiculteur.ruchers.length} ruchers' +
+                            (apiculteurAlerts > 0 ? ' - $apiculteurAlerts alerte(s)' : ''),
+                        style: TextStyle(
+                          color: apiculteurAlerts > 0 ? Colors.red.shade700 : null,
+                          fontWeight: apiculteurAlerts > 0 ? FontWeight.w600 : null,
+                        ),
+                      ),
+                      trailing: _userRole == UserRole.admin ||
+                          (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur)
+                          ? IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: () => _addRucher(apiculteur),
+                        tooltip: 'Add Rucher',
+                      )
+                          : null,
+                      initiallyExpanded: apiculteur.isExpanded || apiculteurAlerts > 0, // Auto-expand if alerts
+                      onExpansionChanged: (expanded) {
+                        setState(() {
+                          apiculteur.isExpanded = expanded;
+                        });
+                      },
+                      children: apiculteur.ruchers.map((rucher) {
+                        return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                            elevation: rucher.alertCount > 0 ? 3 : 1,
+                            color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                              ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Image(
+                                image: AssetImage('assets/${rucher.picUrl}'),
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Row(
+                                children: [
+                                Text(
+                                rucher.id,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
+                                  ),
+                                ),
+                                // Enhanced alert indicator
+                                if (rucher.alertCount > 0) ...[
+                            const SizedBox(width: 8),
+                        Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                        BoxShadow(
+                        color: Colors.red.withOpacity(0.3),
+                        spreadRadius: 1,
+                        blurRadius: 2,
+                        ),
+                        ],
+                        ),
+                        ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text('📍 ${rucher.address}'),
+                                      Text('📝 ${rucher.description}'),
+                                      Text('🐝 Ruches: ${rucher.rucheCount}'),
+                                      // Show alert text if there are alerts
+                                      if (rucher.alertCount > 0)
+                                        Text(
+                                          '🚨 ${rucher.alertCount} alerte(s) active(s)',
+                                          style: TextStyle(
+                                            color: Colors.red.shade700,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                // Only show edit/delete buttons for admin or the owner apiculteur
+                                if (_userRole == UserRole.admin ||
+                                    (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur))
+                                  Column(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () => _editRucher(rucher),
+                                        tooltip: 'Edit Rucher',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        onPressed: () => _deleteRucher(rucher),
+                                        tooltip: 'Delete Rucher',
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
-}
+
+  // You can replace the existing RucherListContent with this new implementation
+  class RucherListContent extends StatelessWidget {
+    const RucherListContent({Key? key}) : super(key: key);
+
+    @override
+    Widget build(BuildContext context) {
+      return const RucherApiculteurView();
+    }
+  }
