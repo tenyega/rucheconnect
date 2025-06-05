@@ -272,7 +272,9 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
   int _getTotalActiveAlerts() {
     int totalAlerts = 0;
     for (var apiculteur in _apiculteurs) {
+      apiculteur.ruchers.sort((a, b) => a.id.compareTo(b.id));
       for (var rucher in apiculteur.ruchers) {
+        rucher.ruches.sort((a, b) => a.id.compareTo(b.id));
         for (var ruche in rucher.ruches) {
           if (_hasActiveAlert(ruche)) {
             totalAlerts++;
@@ -425,6 +427,25 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
 
       _isLoading = false;
     });
+    for (var apiculteur in _apiculteurs) {
+      // Sort ruchers by ID (rucher_001, rucher_002, etc.)
+      apiculteur.ruchers.sort((a, b) {
+        // Extract numeric part from rucher ID for proper sorting
+        final aNum = int.tryParse(a.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        final bNum = int.tryParse(b.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        return aNum.compareTo(bNum);
+      });
+
+      // Sort ruches within each rucher
+      for (var rucher in apiculteur.ruchers) {
+        rucher.ruches.sort((a, b) {
+          // Extract numeric part from ruche ID for proper sorting
+          final aNum = int.tryParse(a.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          final bNum = int.tryParse(b.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          return aNum.compareTo(bNum);
+        });
+      }
+    }
   }
 
   Future<void> _sendAlertEmail(String email, String name, String rucheId, String rucherId) async {
