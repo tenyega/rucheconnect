@@ -105,29 +105,44 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
 
         // Look through all entries in this ruche
         value.forEach((entryKey, entryValue) {
+          print('  Raw entry: $entryKey = $entryValue (type: ${entryValue.runtimeType})');
+
           // Check if the entry value is a string with the expected format
           if (entryValue is String && entryValue.contains('/')) {
             print('  Found data entry: $entryKey = $entryValue');
 
             // Split the string by '/' to get the parts
             List<String> parts = entryValue.split('/');
+            print('  Split parts: $parts (length: ${parts.length})');
 
-            // Check if we have at least 5 parts (timestamp/temp/humidity/courvercle/alert)
+            // Check if we have at least 5 parts
             if (parts.length >= 5) {
-              String alertValue = parts.last.trim(); // Get the last part (alert status)
-              print('    Alert value: $alertValue');
+              String alertValue = parts.last.trim();
+              print('    Alert value: "$alertValue" (length: ${alertValue.length})');
+              print('    Alert value bytes: ${alertValue.codeUnits}');
 
               // Check if alert value indicates an active alert
               if (alertValue == '1') {
                 hasAlert = true;
                 print('    >>> ALERT DETECTED in ruche $keyStr!');
+              } else {
+                print('    No alert - value is: "$alertValue"');
               }
+            } else {
+              print('    Insufficient parts - expected at least 5, got ${parts.length}');
             }
+          } else if (entryValue is String) {
+            print('  String entry without "/" separator: $entryValue');
+          } else {
+            print('  Non-string entry: $entryValue');
           }
         });
 
         if (hasAlert) {
           alertCount++;
+          print('  FINAL: Ruche $keyStr HAS ALERT');
+        } else {
+          print('  FINAL: Ruche $keyStr has no alert');
         }
       }
     });
@@ -136,7 +151,6 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
     print('=== END ALERT CHECK ===');
     return alertCount;
   }
-
   Future<void> _checkUserRole() async {
     final User? currentUser = FirebaseAuth.instance.currentUser;
 
