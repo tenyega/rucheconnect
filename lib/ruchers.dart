@@ -885,8 +885,8 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                   final apiculteur = _apiculteurs[index];
 
                   // Calculate total alerts for this apiculteur
-                  int apiculteurAlerts = apiculteur.ruchers.fold(0, (sum, rucher) => sum + rucher.alertCount);
-
+                  //int apiculteurAlerts = apiculteur.ruchers.fold(0, (sum, rucher) => sum + rucher.alertCount);
+                  int apiculteurAlerts = _getTotalActiveAlerts();
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                     elevation: apiculteurAlerts > 0 ? 4 : 2,
@@ -973,7 +973,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
-                                    color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
+                                    color: apiculteurAlerts > 0 ? Colors.red.shade800 : null,
                                   ),
                                 ),
                                 // Enhanced alert indicator
