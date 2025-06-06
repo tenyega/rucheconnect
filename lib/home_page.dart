@@ -308,6 +308,7 @@
     List<Apiculteur> _apiculteurs = [];
     bool _isLoading = true;
     bool _isRefreshing = false;
+    final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
     @override
     void initState() {
@@ -321,16 +322,57 @@
     }
 
     Future<void> _loadApiculteurs() async {
+      print('=== DEBUG: _loadApiculteurs() function called ===');
       try {
+        if (mounted) {
+          setState(() => _isLoading = true);
+        }
+
         final snapshot = await _apiculteursRef.get();
-        _loadApiculteursFromSnapshot(snapshot);
+
+        if (!mounted) return;
+
+        if (snapshot.exists && snapshot.value != null) {
+          final data = snapshot.value as Map<dynamic, dynamic>;
+          List<Apiculteur> loadedApiculteurs = [];
+
+          data.forEach((key, value) {
+            if (value is Map && key.toString().startsWith('api_')) {
+              final apiculteurMap = Map<String, dynamic>.from(value);
+              final apiculteur = Apiculteur(
+                id: key.toString(),
+                login: apiculteurMap['login'] ?? '',
+                email: apiculteurMap['email'] ?? '',
+                nom: apiculteurMap['nom'] ?? '',
+                prenom: apiculteurMap['prenom'] ?? '',
+                address: apiculteurMap['address'] ?? '',
+                pwd: apiculteurMap['pwd']?.toString() ?? '',
+              );
+              loadedApiculteurs.add(apiculteur);
+            }
+          });
+
+
+          if (mounted) {
+            setState(() {
+              _apiculteurs = loadedApiculteurs;
+              _isLoading = false;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _apiculteurs = [];
+              _isLoading = false;
+            });
+          }
+        }
       } catch (e) {
-        setState(() {
-          _isLoading = false;
-        });
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: ${e.toString()}')),
+          SnackBar(content: Text('Error loading apiculteurs: $e')),
         );
+        setState(() => _isLoading = false);
       }
     }
 
@@ -368,25 +410,39 @@
     void _loadApiculteursFromSnapshot(DataSnapshot snapshot) {
       setState(() {
         _apiculteurs = [];
+
         if (snapshot.exists && snapshot.value != null) {
           final map = snapshot.value as Map<dynamic, dynamic>;
+
           map.forEach((key, value) {
-            if (key.toString().startsWith('api')) { // Only process apiculteur entries
+            if (key.toString().startsWith('api')) {
               _apiculteurs.add(Apiculteur(
-                  id: key.toString(),
-                  address: (value as Map<dynamic, dynamic>)['address'] ?? '',
-                  email: value['email'] ?? '',
-                  login: value['login'] ?? '',
-                  nom: value['nom'] ?? '',
-                  prenom: value['prenom'] ?? '',
-                  pwd: value['pwd']?.toString() ?? ''
+                id: key.toString(),
+                address: (value as Map<dynamic, dynamic>)['address'] ?? '',
+                email: value['email'] ?? '',
+                login: value['login'] ?? '',
+                nom: value['nom'] ?? '',
+                prenom: value['prenom'] ?? '',
+                pwd: value['pwd']?.toString() ?? '',
               ));
             }
           });
+
+          // ✅ Sort here by numeric value of api_X ID
+          _apiculteurs.sort((a, b) {
+            final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a.id);
+            final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b.id);
+            if (aMatch != null && bMatch != null) {
+              return int.parse(aMatch.group(1)!).compareTo(int.parse(bMatch.group(1)!));
+            }
+            return a.id.compareTo(b.id);
+          });
         }
+
         _isLoading = false;
       });
     }
+
 
     Future<void> _addApiculteur() async {
       // Show dialog to collect apiculteur data
@@ -460,7 +516,7 @@
         try {
           // Generate a new apiX ID where X is a number
           final apiCount = _apiculteurs.length + 1;
-          final newApiId = 'api$apiCount';
+          final newApiId = 'api_00$apiCount';
 
           await _apiculteursRef.child(newApiId).set({
             'login': result['login'],

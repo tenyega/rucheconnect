@@ -17,62 +17,88 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
 
   @override
   void initState() {
+    print('=== DEBUG: initState called ===');
     super.initState();
-    _loadApiculteurs();
+
+    // Add a small delay to ensure the widget is fully mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('=== DEBUG: PostFrameCallback - About to call _loadApiculteurs ===');
+      _loadApiculteurs();
+      print('=== DEBUG: PostFrameCallback - _loadApiculteurs call finished ===');
+    });
   }
 
   Future<void> _loadApiculteurs() async {
+    print('=== DEBUG: _loadApiculteurs() function called ===');
     try {
-      setState(() {
-        isLoading = true;
-      });
+      if (mounted) {
+        setState(() => isLoading = true);
+      }
 
       final apiculteursRef = _database.child('apiculteurs');
       final snapshot = await apiculteursRef.get();
+
+      if (!mounted) return;
 
       if (snapshot.exists && snapshot.value != null) {
         final data = snapshot.value as Map<dynamic, dynamic>;
         List<Map<String, dynamic>> loadedApiculteurs = [];
 
         data.forEach((key, value) {
-          if (value is Map && key.toString().startsWith('api')) {
-            final apiculteur = Map<String, dynamic>.from(value as Map);
+          if (value is Map && key.toString().startsWith('api_')) {
+            final apiculteur = Map<String, dynamic>.from(value);
             apiculteur['id'] = key;
             loadedApiculteurs.add(apiculteur);
           }
         });
 
-        setState(() {
-          apiculteurs = loadedApiculteurs;
-          isLoading = false;
+        loadedApiculteurs.sort((a, b) {
+          final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a['id']);
+          final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b['id']);
+          if (aMatch != null && bMatch != null) {
+            return int.parse(aMatch.group(1)!).compareTo(int.parse(bMatch.group(1)!));
+          }
+          return a['id'].compareTo(b['id']);
         });
+
+        if (mounted) {
+          setState(() {
+            apiculteurs = loadedApiculteurs;
+            isLoading = false;
+          });
+        }
       } else {
-        setState(() {
-          apiculteurs = [];
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            apiculteurs = [];
+            isLoading = false;
+          });
+        }
       }
-    } catch (e) {
+    } catch (e, st) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading apiculteurs: $e')),
       );
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
   // Function to check if a user is registered
   Future<bool> _isRegistered(String email) async {
+    print('=== DEBUG: Checking registration for email: $email ===');
     try {
       final result = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
+      print('=== DEBUG: Registration check result for $email: ${result.isNotEmpty} ===');
       return result.isNotEmpty;
     } catch (e) {
+      print('=== DEBUG: Error checking registration for $email: $e ===');
       return false;
     }
   }
 
   Future<void> _addApiculteur() async {
+    print('=== DEBUG: _addApiculteur called ===');
     // Show dialog to collect apiculteur data
     final TextEditingController loginController = TextEditingController();
     final TextEditingController emailController = TextEditingController();
@@ -141,10 +167,34 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
     );
 
     if (result != null) {
+      print('=== DEBUG: Dialog result received, processing new apiculteur ===');
       try {
         // Generate a new apiX ID where X is a number
-        final apiCount = apiculteurs.length + 1;
-        final newApiId = 'api$apiCount';
+        int maxApiNumber = 0;
+
+        // First, get all existing API IDs from Firebase to ensure we don't have duplicates
+        print('=== DEBUG: Getting existing API IDs ===');
+        final allApiculteursSnapshot = await _database.child('apiculteurs').get();
+        if (allApiculteursSnapshot.exists) {
+          final allData = allApiculteursSnapshot.value as Map<dynamic, dynamic>;
+          allData.forEach((key, value) {
+            if (key.toString().startsWith('api_')) {
+              //final match = RegExp(r'api_(\d+)').firstMatch(key.toString());
+              final match = RegExp(r'^api_(\d{3})$').firstMatch(key.toString());
+
+              if (match != null) {
+                final number = int.parse(match.group(1)!);
+                if (number > maxApiNumber) {
+                  maxApiNumber = number;
+                }
+              }
+            }
+          });
+        }
+
+        final newApiId = 'api_${(maxApiNumber + 1).toString().padLeft(3, '0')}';
+
+        print('=== DEBUG: Generated new API ID: $newApiId ===');
 
         await _database.child('apiculteurs').child(newApiId).set({
           'login': result['login'],
@@ -156,21 +206,32 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
           'joinedDate': DateTime.now().toString().substring(0, 10), // Add join date
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apiculteur ajouté avec succès')),
-        );
+        print('=== DEBUG: New apiculteur saved successfully ===');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Apiculteur ajouté avec succès')),
+          );
+        }
 
         // Refresh the list
+        print('=== DEBUG: Refreshing list after adding new apiculteur ===');
         _loadApiculteurs();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
-        );
+        print('=== DEBUG: Error adding apiculteur: $e ===');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: ${e.toString()}')),
+          );
+        }
       }
+    } else {
+      print('=== DEBUG: Dialog was cancelled ===');
     }
   }
 
   Future<void> _registerApiculteur(String email, String password, String apiId) async {
+    print('=== DEBUG: Registering apiculteur: $email, ID: $apiId ===');
     try {
       // Create Firebase auth account
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -178,26 +239,37 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
         password: password,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Apiculteur enregistré avec succès')),
-      );
+      print('=== DEBUG: Firebase auth account created successfully ===');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apiculteur enregistré avec succès')),
+        );
+      }
 
       // Refresh to update registration status
       _loadApiculteurs();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur d\'enregistrement: $e')),
-      );
+      print('=== DEBUG: Error registering apiculteur: $e ===');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur d\'enregistrement: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    print('=== DEBUG: build() called, isLoading: $isLoading, apiculteurs count: ${apiculteurs.length} ===');
+
     if (isLoading) {
+      print('=== DEBUG: Showing loading indicator ===');
       return const Center(child: CircularProgressIndicator());
     }
 
     if (apiculteurs.isEmpty) {
+      print('=== DEBUG: Showing empty state ===');
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -213,6 +285,7 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
       );
     }
 
+    print('=== DEBUG: Building list with ${apiculteurs.length} apiculteurs ===');
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _loadApiculteurs,
@@ -220,6 +293,8 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
           itemCount: apiculteurs.length,
           itemBuilder: (context, index) {
             final apiculteur = apiculteurs[index];
+            print('=== DEBUG: Building list item $index: ${apiculteur['prenom']} ${apiculteur['nom']} ===');
+
             return FutureBuilder<bool>(
               future: _isRegistered(apiculteur['email']),
               builder: (context, snapshot) {
@@ -266,6 +341,7 @@ class _ApiculteurListPageState extends State<ApiculteurListPage> {
                       ],
                     ),
                     onTap: () {
+                      print('=== DEBUG: Navigating to profile for ${apiculteur['id']} ===');
                       // Navigate to the apiculteur's profile
                       Navigator.push(
                         context,
