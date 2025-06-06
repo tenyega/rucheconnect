@@ -461,7 +461,8 @@
               ));
             }
           });
-  
+
+
           // Sort the ruchers list before adding to apiculteur
           final sortedRuchers = _sortRuchers(ruchersList);
   
@@ -472,12 +473,14 @@
             ruchers: sortedRuchers,
           ));
         }
+
+
         _isLoading = false;
       });
     }
-  
+
     void _loadApiculteursFromSnapshot(DataSnapshot snapshot) {
-      // If user is an apiculteur, only load their data
+      // If user is apiculteur, only load their data
       if (_userRole == UserRole.apiculteur && _currentApiculteurId.isNotEmpty) {
         final specificApiculteurRef = _apiculteursRef.child(_currentApiculteurId);
         specificApiculteurRef.get().then((apiculteurSnapshot) {
@@ -487,56 +490,48 @@
         });
         return;
       }
-  
+
       // For admin role, load all apiculteurs
       setState(() {
         _apiculteurs = [];
         _rucherToApiculteurMap.clear();
-  
+
         if (snapshot.exists && snapshot.value != null) {
           final map = snapshot.value as Map<dynamic, dynamic>;
           map.forEach((key, value) {
             if (key.toString().startsWith('api')) {
-              // Extract ruchers for this apiculteur
               final List<RucherInfo> ruchersList = [];
               if (value is Map<dynamic, dynamic>) {
                 value.forEach((rKey, rValue) {
                   if (rKey.toString().startsWith('rucher') && rValue is Map<dynamic, dynamic>) {
-                    // Count ruches in this rucher
                     int rucheCount = 0;
                     rValue.forEach((key, _) {
                       if (key.toString().startsWith('ruche')) {
                         rucheCount++;
                       }
                     });
-  
-  
-                    // Load ruches data for this rucher
+
                     List<RucheInfo> ruches = _loadRuchesForRucher(rValue, rKey.toString(), key.toString());
-  
-                    // Count alerts in this rucher
                     int alertCount = _countRucherAlerts(rValue);
-  
-                    // Add to mapping for later reference
+
                     _rucherToApiculteurMap[rKey.toString()] = key.toString();
-  
+
                     ruchersList.add(RucherInfo(
                       id: rKey.toString(),
                       address: rValue['address'] ?? '',
                       description: rValue['desc'] ?? '',
                       picUrl: rValue['pic'] ?? '',
                       rucheCount: rucheCount,
-                      ruches: ruches, // Now providing the required parameter
+                      ruches: ruches,
                       alertCount: alertCount,
                       isExpanded: false,
                     ));
                   }
                 });
               }
-  
-              // Sort the ruchers list before adding to apiculteur
+
               final sortedRuchers = _sortRuchers(ruchersList);
-  
+
               _apiculteurs.add(ApiculteurWithRuchers(
                 id: key.toString(),
                 nom: value['nom'] ?? '',
@@ -545,11 +540,27 @@
               ));
             }
           });
+
+          // ✅ Sort apiculteurs by ID AFTER all are added
+          _apiculteurs.sort((a, b) {
+            final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a.id);
+            final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b.id);
+
+            if (aMatch != null && bMatch != null) {
+              final aNum = int.parse(aMatch.group(1)!);
+              final bNum = int.parse(bMatch.group(1)!);
+              return aNum.compareTo(bNum);
+            }
+
+            return a.id.compareTo(b.id);
+          });
         }
+
         _isLoading = false;
       });
     }
-  
+
+
     // Add a new rucher to an apiculteur
     Future<void> _addRucher(ApiculteurWithRuchers apiculteur) async {
       // Show dialog to collect rucher information
