@@ -2,9 +2,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:tp_flutter/ruchers.dart';
-import 'package:tp_flutter/ruche.dart'; // Import the new ruche.dart file
 import 'view_profile.dart';
+import 'package:tp_flutter/ruchers.dart';
+import 'package:tp_flutter/ruche.dart' as ruche;// Import the new ruche.dart file
 
 // Define a UserRole enum for better type safety
 enum UserRole {
@@ -26,6 +26,7 @@ class _MyHomePageState extends State<MyHomePage> {
   int _currentIndex = 0;
   UserRole _userRole = UserRole.unknown;
   bool _isLoading = true;
+  List<Apiculteur> _apiculteurs = [];
 
   // Late variables for the pages and navigation items
   late final List<Widget> _currentPages;
@@ -142,28 +143,28 @@ class _MyHomePageState extends State<MyHomePage> {
         appBar: AppBar(
           title: const Text('Accès Refusé'),
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 80, color: Colors.red),
-              const SizedBox(height: 16),
-              const Text(
-                'Accès non autorisé',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Vous n\'avez pas les droits nécessaires pour accéder à cette application.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _logout,
-                child: const Text('Se déconnecter'),
-              ),
-            ],
-          ),
+        body: Column(
+          children: [
+
+            const Icon(Icons.error_outline, size: 80, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'Accès non autorisé',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Vous n\'avez pas les droits nécessaires pour accéder à cette application.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _logout,
+              child: const Text('Se déconnecter'),
+            ),
+
+
+          ],
         ),
       );
     }
@@ -265,6 +266,7 @@ class Apiculteur {
   String prenom;
   String pwd;
   bool isExpanded;
+  List<RucherInfo> ruchers; // <-- Add this line
 
   Apiculteur({
     required this.id,
@@ -275,6 +277,7 @@ class Apiculteur {
     required this.prenom,
     required this.pwd,
     this.isExpanded = false,
+    this.ruchers = const [], // <-- Add this too (with default empty list)
   });
 }
 
@@ -310,6 +313,24 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
   bool _isRefreshing = false;
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
+  bool _hasActiveAlert(RucheInfo ruche) {
+    // Use the new hasActiveAlert getter from RucheInfo
+    return ruche.hasActiveAlert;
+  }
+  int _getTotalActiveAlerts() {
+    int totalAlerts = 0;
+    for (var apiculteur in _apiculteurs) {
+      for (var rucher in apiculteur.ruchers) {
+        for (var ruche in rucher.ruches) {
+          if (_hasActiveAlert(ruche)) {
+            totalAlerts++;
+          }
+        }
+      }
+    }
+    return 1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -322,59 +343,70 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
   }
 
   Future<void> _loadApiculteurs() async {
-    print('=== DEBUG: _loadApiculteurs() function called ===');
-    try {
-      if (mounted) {
-        setState(() => _isLoading = true);
-      }
+    final snapshot = await _apiculteursRef.get();
+    if (snapshot.exists && snapshot.value != null) {
+      final data = snapshot.value as Map<dynamic, dynamic>;
+      List<Apiculteur> loadedApiculteurs = [];
 
-      final snapshot = await _apiculteursRef.get();
+      for (var entry in data.entries) {
+        final key = entry.key.toString();
+        final apiculteurMap = Map<String, dynamic>.from(entry.value);
+        List<RucherInfo> ruchers = [];
 
-      if (!mounted) return;
+        // Loop through all keys in apiculteur map to find ruchers
+        for (var subEntry in apiculteurMap.entries) {
+          if (subEntry.key.toString().startsWith('rucher_')) {
+            final rucherMap = Map<String, dynamic>.from(subEntry.value);
+            List<RucheInfo> ruches = [];
 
-      if (snapshot.exists && snapshot.value != null) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        List<Apiculteur> loadedApiculteurs = [];
+            for (var rucheEntry in rucherMap.entries) {
+              if (rucheEntry.key.toString().startsWith('ruche_')) {
+                final rucheDataMap = Map<String, dynamic>.from(rucheEntry.value);
+                final latest = rucheDataMap.entries.last.value.toString().split('/');
+                int? alert = int.tryParse(latest.last);
+                ruchers.add(RucherInfo(
+                  id: subEntry.key.toString(),
+                  address: '',
+                  description: '',
+                  picUrl: '',
+                  rucheCount: ruches.length,
+                  ruches: ruches,
+                ));
 
-        data.forEach((key, value) {
-          if (value is Map && key.toString().startsWith('api_')) {
-            final apiculteurMap = Map<String, dynamic>.from(value);
-            final apiculteur = Apiculteur(
-              id: key.toString(),
-              login: apiculteurMap['login'] ?? '',
-              email: apiculteurMap['email'] ?? '',
-              nom: apiculteurMap['nom'] ?? '',
-              prenom: apiculteurMap['prenom'] ?? '',
-              address: apiculteurMap['address'] ?? '',
-              pwd: apiculteurMap['pwd']?.toString() ?? '',
-            );
-            loadedApiculteurs.add(apiculteur);
+
+              }
+            }
+
+            ruchers.add(RucherInfo(
+              id: subEntry.key.toString(),
+              address: '',
+              description: '',
+              picUrl: '',
+              rucheCount: ruches.length,
+              ruches: ruches,
+            ));
+
           }
-        });
-
-
-        if (mounted) {
-          setState(() {
-            _apiculteurs = loadedApiculteurs;
-            _isLoading = false;
-          });
         }
-      } else {
-        if (mounted) {
-          setState(() {
-            _apiculteurs = [];
-            _isLoading = false;
-          });
-        }
+
+        loadedApiculteurs.add(Apiculteur(
+          id: key,
+          login: apiculteurMap['login'] ?? '',
+          email: apiculteurMap['email'] ?? '',
+          nom: apiculteurMap['nom'] ?? '',
+          prenom: apiculteurMap['prenom'] ?? '',
+          address: apiculteurMap['address'] ?? '',
+          pwd: apiculteurMap['pwd']?.toString() ?? '',
+          ruchers: ruchers,
+        ));
       }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading apiculteurs: $e')),
-      );
-      setState(() => _isLoading = false);
+
+      setState(() {
+        _apiculteurs = loadedApiculteurs;
+      });
     }
   }
+
 
   // Fixed refresh method to ensure message is shown
   Future<void> _refreshApiculteurs() async {
@@ -614,6 +646,7 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -622,25 +655,60 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     return Stack(
       children: [
         Scaffold(
-          body: ListView.builder(
-            itemCount: _apiculteurs.length + 1, // +1 for the add button
-            itemBuilder: (context, index) {
-              if (index == _apiculteurs.length) {
-                // Last item is an add button
-                return ListTile(
-                  leading: const Icon(Icons.add),
-                  title: const Text('Ajouter un apiculteur'),
-                  onTap: _addApiculteur,
-                );
-              }
+          body: Column(
+            children: [
+              // Alert banner
+              if (_getTotalActiveAlerts() > 0)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200, width: 2),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.red, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '⚠️ ${_getTotalActiveAlerts()} ruche(s) en alerte - Vol de miel détecté!',
+                          style: TextStyle(
+                            color: Colors.red.shade800,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-              final apiculteur = _apiculteurs[index];
-              return _buildApiculteurItem(apiculteur);
-            },
+              // Apiculteurs list
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _apiculteurs.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == _apiculteurs.length) {
+                      return ListTile(
+                        leading: const Icon(Icons.add),
+                        title: const Text('Ajouter un apiculteur'),
+                        onTap: _addApiculteur,
+                      );
+                    }
+
+                    final apiculteur = _apiculteurs[index];
+                    return _buildApiculteurItem(apiculteur);
+                  },
+                ),
+              ),
+            ],
           ),
-          // Removed the floating action button
         ),
-        // Show overlay loading indicator when refreshing
+
+        // Overlay loading spinner
         if (_isRefreshing)
           Container(
             color: Colors.black.withOpacity(0.3),
@@ -651,6 +719,7 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
       ],
     );
   }
+
 
   Widget _buildApiculteurItem(Apiculteur apiculteur) {
     return ExpansionTile(
@@ -826,6 +895,7 @@ class ProfileContent extends StatelessWidget {
                   ),
 
                 // Profile menu items
+
                 ListTile(
                   leading: const Icon(Icons.person),
                   title: const Text('View Profile'),
@@ -927,7 +997,6 @@ class RucheContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // This redirects to your new implementation
-    return const RucherRucheViewState();
+    return const ruche.RucherRucheViewState();
   }
 }

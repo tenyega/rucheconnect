@@ -197,7 +197,7 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
             const Text('Aucune donnée disponible.'),
             const SizedBox(height: 16),
             // Show path info even when no data
-            Text('Path: ${widget.apiculteurId}/${widget.rucherId}/${widget.rucheId}',
+            Text('Sur : ${widget.apiculteurId}/${widget.rucherId}/${widget.rucheId}',
                 style: const TextStyle(color: Colors.grey)),
           ],
         ),

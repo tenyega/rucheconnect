@@ -1019,3 +1019,17 @@ class RucherListContent extends StatelessWidget {
     return const RucherApiculteurView();
   }
 }
+class RucheContent extends StatelessWidget {
+  const RucheContent({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        Text("Welcome to Ruche Page"),
+        // Add more widgets here
+      ],
+    );
+  }
+}
+
