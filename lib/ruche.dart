@@ -424,7 +424,19 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
           }
         });
       }
+      // ✅ Sort apiculteurs by ID AFTER all are added
+      _apiculteurs.sort((a, b) {
+        final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a.id);
+        final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b.id);
 
+        if (aMatch != null && bMatch != null) {
+          final aNum = int.parse(aMatch.group(1)!);
+          final bNum = int.parse(bMatch.group(1)!);
+          return aNum.compareTo(bNum);
+        }
+
+        return a.id.compareTo(b.id);
+      });
       _isLoading = false;
     });
     for (var apiculteur in _apiculteurs) {
