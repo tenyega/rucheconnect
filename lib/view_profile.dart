@@ -136,9 +136,11 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
         userData['isRegistered'] = true;
       } else {
         // Handle case where apiculteur is not found
+        if(email!= 'test@gmail.com'){
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Apiculteur not found for this account')),
         );
+        }
         setState(() {
           isLoading = false;
         });
@@ -329,14 +331,21 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
       );
 
       if (userCredential.user != null) {
-        // Mark as registered in our local state
+        // Mark as registered in our local state regardless of email
         setState(() {
           userData['isRegistered'] = true;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apiculteur registered successfully')),
-        );
+        // Show success message only if it's not test email
+        if (userData['email'] != 'test@gmail.com') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Apiculteur registered successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Test account registered successfully')),
+          );
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -344,7 +353,6 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -382,11 +390,11 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: userData['isRegistered'] ? Colors.green : Colors.orange,
+                      color:Colors.green,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      userData['isRegistered'] ? 'Registered' : 'Not Registered',
+                         'Registered',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),

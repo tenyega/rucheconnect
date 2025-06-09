@@ -1,7 +1,520 @@
+import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/material.dart';
 
+
+// Improved utility functions for base64 handling
+
+/// Converts an XFile image to base64 string with proper data URL format
+Future<String> convertImageToBase64(XFile imageFile) async {
+  try {
+    final bytes = await imageFile.readAsBytes();
+    final base64String = base64Encode(bytes);
+
+    // Determine MIME type based on file extension
+    String mimeType = _getMimeTypeFromFileName(imageFile.name);
+
+    // Return with proper data URL format
+    return 'data:$mimeType;base64,$base64String';
+  } catch (e) {
+    print('Error converting image to base64: $e');
+    throw Exception('Failed to convert image to base64: $e');
+  }
+}
+
+/// Helper function to determine MIME type from file name
+String _getMimeTypeFromFileName(String fileName) {
+  final extension = fileName.toLowerCase().split('.').last;
+  switch (extension) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'bmp':
+      return 'image/bmp';
+    default:
+      return 'image/jpeg'; // Default fallback
+  }
+}
+
+/// Improved function to check if a string is valid base64
+bool isValidBase64(String str) {
+  if (str.isEmpty) return false;
+
+  // Remove data URL prefix if present
+  String base64Part = str;
+  if (str.startsWith('data:image')) {
+    final parts = str.split(',');
+    if (parts.length != 2) return false;
+    base64Part = parts[1];
+  }
+
+  // Check if string contains only valid base64 characters
+  final base64RegExp = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
+  if (!base64RegExp.hasMatch(base64Part)) return false;
+
+  // Check if length is valid (must be multiple of 4)
+  if (base64Part.length % 4 != 0) return false;
+
+  // Try to decode to verify it's valid base64
+  try {
+    base64Decode(base64Part);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// FIXED: Enhanced image builder widget with better error handling and loading states
+Widget buildImageFromBase64OrPath(
+    String imageData, {
+      double width = 100,
+      double height = 100,
+      BoxFit fit = BoxFit.cover,
+      BorderRadius? borderRadius,
+      Widget? placeholder,
+      Widget? errorWidget,
+    }) {
+  final defaultBorderRadius = borderRadius ?? BorderRadius.circular(8);
+
+  // Default placeholder
+  final defaultPlaceholder = placeholder ?? Container(
+    width: 12,
+    height: 12,
+    decoration: BoxDecoration(
+      color: Colors.grey.shade200,
+      borderRadius: defaultBorderRadius,
+      border: Border.all(color: Colors.grey.shade300),
+    ),
+    child: Icon(
+      Icons.image,
+      size: width * 0.4,
+      color: Colors.grey.shade400,
+    ),
+  );
+
+  if (imageData == null || imageData.isEmpty) {
+    return Image.asset('assets/default.png'); // Default image widget
+  }
+
+  // Check if it's just a filename (ends with image extension)
+  if (imageData.endsWith('.jpg') ||
+      imageData.endsWith('.jpeg') ||
+      imageData.endsWith('.png') ||
+      imageData.endsWith('.gif')) {
+
+    // If it's just a filename, prepend your images directory path
+    if (!imageData.contains('/')) {
+      return Image.asset('assets/$imageData'); // Asset image widget
+      // Or for network images: return Image.network('https://yourserver.com/images/$imageData');
+    }
+  }
+
+  // Check if it's base64 (usually starts with data: or is very long)
+  if (imageData.startsWith('data:image/')) {
+    // Handle base64 image
+    String base64String = imageData.split(',')[1]; // Remove data:image/...;base64, part
+    return Image.memory(base64Decode(base64String));
+  }
+
+  // If it's a network URL
+  if (imageData.startsWith('http')) {
+    return Image.network(imageData);
+  }
+
+  // If it's a local file path
+  if (imageData.startsWith('/')) {
+    return Image.file(File(imageData));
+  }
+
+  // Fallback
+  print('Unrecognized image format: ${imageData.length > 50 ? imageData.substring(0, 50) : imageData}...');
+  return Image.asset('assets/default.png'); // Default widget
+  // Default error widget
+  final defaultErrorWidget = errorWidget ?? Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: Colors.red.shade50,
+      borderRadius: defaultBorderRadius,
+      border: Border.all(color: Colors.red.shade300),
+    ),
+    child: Icon(
+      Icons.broken_image,
+      size: width * 0.4,
+      color: Colors.red.shade400,
+    ),
+  );
+
+  // Handle empty or null image data
+  if (imageData.isEmpty) {
+    return defaultPlaceholder;
+  }
+
+  // Handle data URL format (data:image/jpeg;base64,...)
+  if (imageData.startsWith('data:image')) {
+    return _buildBase64Image(
+      imageData,
+      width: width,
+      height: height,
+      fit: fit,
+      borderRadius: defaultBorderRadius,
+      errorWidget: defaultErrorWidget,
+    );
+  }
+
+  // Handle pure base64 strings
+  if (isValidBase64(imageData)) {
+    return _buildBase64Image(
+      imageData,
+      width: width,
+      height: height,
+      fit: fit,
+      borderRadius: defaultBorderRadius,
+      errorWidget: defaultErrorWidget,
+    );
+  }
+
+  // Handle local file paths
+  if (imageData.startsWith('/') || imageData.contains('\\')) {
+    final file = File(imageData);
+    if (file.existsSync()) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: defaultBorderRadius,
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: ClipRRect(
+          borderRadius: defaultBorderRadius,
+          child: Image.file(
+            file,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) {
+              print('Error loading file image: $error');
+              return defaultErrorWidget;
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  // Handle network URLs
+  if (imageData.startsWith('http')) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: defaultBorderRadius,
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: ClipRRect(
+        borderRadius: defaultBorderRadius,
+        child: Image.network(
+          imageData,
+          width: width,
+          height: height,
+          fit: fit,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: width,
+              height: height,
+              color: Colors.grey.shade200,
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 2,
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('Error loading network image: $error');
+            return defaultErrorWidget;
+          },
+        ),
+      ),
+    );
+  }
+
+  String safeTruncate(String str, int maxLength) {
+    if (str.isEmpty) return str;
+    return str.length <= maxLength ? str : str.substring(0, maxLength);
+  }
+
+// Usage:
+  print('Unrecognized image format: ${safeTruncate(imageData, 50)}...');
+  // If none of the above, return error widget
+ // print('Unrecognized image format: ${imageData.substring(0, 50)}...');
+  return defaultErrorWidget;
+}
+
+/// FIXED: Helper function to build base64 images
+Widget _buildBase64Image(
+    String imageData, {
+      required double width,
+      required double height,
+      required BoxFit fit,
+      required BorderRadius borderRadius,
+      required Widget errorWidget,
+    }) {
+  try {
+    String base64String = imageData;
+
+    // Extract base64 part if it's a data URL
+    if (imageData.startsWith('data:image')) {
+      final parts = imageData.split(',');
+      if (parts.length != 2) {
+        throw Exception('Invalid data URL format');
+      }
+      base64String = parts[1];
+    }
+
+    // Decode base64 to bytes
+    final Uint8List bytes = base64Decode(base64String);
+
+    // Validate that we have actual image data
+    if (bytes.isEmpty) {
+      throw Exception('Empty image data');
+    }
+
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Image.memory(
+          bytes,
+          width: 30,
+          height: 30,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            print('Error displaying base64 image: $error');
+            return errorWidget;
+          },
+        ),
+      ),
+    );
+  } catch (e) {
+    print('Error processing base64 image: $e');
+    return errorWidget;
+  }
+}
+
+/// IMPROVED: Add Rucher function with better error handling
+Future<void> addRucherWithImage(
+    String apiculteurId,
+    String newRucherId,
+    String address,
+    String description,
+    XFile? imageFile,
+    DatabaseReference apiculteursRef) async {
+
+  try {
+    String imageData = '';
+
+    if (imageFile != null) {
+      print('Converting image to base64...');
+
+      // Convert image to base64 with proper data URL format
+      imageData = await convertImageToBase64(imageFile);
+      print('Base64 conversion successful, length: ${imageData.length}');
+
+      // Validate the base64 data
+      String? validatedImageData = validateAndCleanBase64Image(imageData);
+      if (validatedImageData != null) {
+        imageData = validatedImageData;
+        print('Base64 validation successful');
+      } else {
+        print('Base64 validation failed, proceeding without image');
+        imageData = '';
+      }
+    }
+
+    // Save the rucher data to Firebase
+    await apiculteursRef.child('$apiculteurId/$newRucherId').set({
+      'address': address.trim(),
+      'desc': description.trim(),
+      'pic': imageData, // Store validated base64 data
+    });
+
+    print('Rucher added successfully with image data length: ${imageData.length}');
+
+  } catch (e) {
+    print('Error adding rucher: $e');
+    throw e; // Re-throw to handle in UI
+  }
+}
+
+/// Utility function to validate and clean base64 image data before saving
+String? validateAndCleanBase64Image(String imageData) {
+  if (imageData.isEmpty) return null;
+
+  try {
+    // If it's already a proper data URL, validate and return
+    if (imageData.startsWith('data:image')) {
+      final parts = imageData.split(',');
+      if (parts.length == 2 && isValidBase64(parts[1])) {
+        return imageData;
+      }
+      throw Exception('Invalid data URL format');
+    }
+
+    // If it's pure base64, validate and add proper prefix
+    if (isValidBase64(imageData)) {
+      // Default to JPEG if we can't determine the type
+      return 'data:image/jpeg;base64,$imageData';
+    }
+
+    throw Exception('Invalid base64 data');
+  } catch (e) {
+    print('Error validating base64 image: $e');
+    return null;
+  }
+}
+
+/// Enhanced image picker dialog with preview
+Future<XFile?> showImagePickerDialog(BuildContext context) async {
+  return await showDialog<XFile?>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Select Image Source'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () async {
+                final picker = ImagePicker();
+                final pickedFile = await picker.pickImage(
+                  source: ImageSource.gallery,
+                  maxWidth: 1024,
+                  maxHeight: 1024,
+                  imageQuality: 85,
+                );
+                Navigator.of(context).pop(pickedFile);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () async {
+                final picker = ImagePicker();
+                final pickedFile = await picker.pickImage(
+                  source: ImageSource.camera,
+                  maxWidth: 1024,
+                  maxHeight: 1024,
+                  imageQuality: 85,
+                );
+                Navigator.of(context).pop(pickedFile);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(null),
+            child: const Text('Cancel'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// Image preview widget with edit/remove options
+class ImagePreviewWidget extends StatelessWidget {
+  final String? imageData;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRemove;
+  final double width;
+  final double height;
+
+  const ImagePreviewWidget({
+    Key? key,
+    this.imageData,
+    this.onEdit,
+    this.onRemove,
+    this.width = 150,
+    this.height = 150,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Stack(
+          children: [
+            buildImageFromBase64OrPath(
+              imageData ?? '',
+              width: width,
+              height: height,
+            ),
+            if (imageData != null && imageData!.isNotEmpty)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                    onPressed: onRemove,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.edit),
+              label: const Text('Change'),
+              onPressed: onEdit,
+            ),
+            if (imageData != null && imageData!.isNotEmpty)
+              TextButton.icon(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                label: const Text('Remove', style: TextStyle(color: Colors.red)),
+                onPressed: onRemove,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 // Import UserRole enum from home page
 enum UserRole {
   admin,
@@ -561,75 +1074,225 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
   }
 
 
-  // Add a new rucher to an apiculteur
-  Future<void> _addRucher(ApiculteurWithRuchers apiculteur) async {
-    // Show dialog to collect rucher information
-    final TextEditingController addressController = TextEditingController();
-    final TextEditingController descController = TextEditingController();
-    final TextEditingController picController = TextEditingController();
 
-    // Generate a new rucher ID with proper formatting (rucher_001, rucher_002, etc.)
+  Future<void> _addRucher(ApiculteurWithRuchers apiculteur) async {
+    final addressController = TextEditingController();
+    final descController = TextEditingController();
+
+    XFile? imageFile;
+    String? selectedImagePath; // To show preview
+
     int nextRucherNumber = apiculteur.ruchers.length + 1;
     String newRucherId = 'rucher_${nextRucherNumber.toString().padLeft(3, '0')}';
 
     final bool? result = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add New Rucher'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
+      builder: (context) {
+        return StatefulBuilder( // Make dialog stateful to update image preview
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add New Rucher'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: addressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Address',
+                        prefixIcon: Icon(Icons.location_on),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Image preview section
+                    if (selectedImagePath != null) ...[
+                      Container(
+                        height: 12,
+                        width: 12,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(selectedImagePath!),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Selected: ${imageFile?.name ?? ""}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Image picker buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.photo_library),
+                            label: const Text('Gallery'),
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final pickedFile = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                maxWidth: 1024,
+                                maxHeight: 1024,
+                                imageQuality: 85,
+                              );
+                              if (pickedFile != null) {
+                                imageFile = pickedFile;
+                                selectedImagePath = pickedFile.path;
+                                setDialogState(() {}); // Update dialog UI
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('Camera'),
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final pickedFile = await picker.pickImage(
+                                source: ImageSource.camera,
+                                maxWidth: 1024,
+                                maxHeight: 1024,
+                                imageQuality: 85,
+                              );
+                              if (pickedFile != null) {
+                                imageFile = pickedFile;
+                                selectedImagePath = pickedFile.path;
+                                setDialogState(() {}); // Update dialog UI
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Remove image button (if image is selected)
+                    if (selectedImagePath != null) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        label: const Text('Remove Image', style: TextStyle(color: Colors.red)),
+                        onPressed: () {
+                          imageFile = null;
+                          selectedImagePath = null;
+                          setDialogState(() {}); // Update dialog UI
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
                 ),
-                TextField(
-                  controller: picController,
-                  decoration: const InputDecoration(labelText: 'Picture URL'),
+                ElevatedButton(
+                  onPressed: addressController.text.trim().isEmpty || descController.text.trim().isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop(true),
+                  child: const Text('Add Rucher'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Add'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
 
     if (result == true) {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
       try {
-        // Add the new rucher to Firebase under the apiculteur
+        String imageData = '';
+
+        if (imageFile != null) {
+          // Convert image to base64
+          print('Converting image to base64...');
+          imageData = await convertImageToBase64(imageFile!);
+          print('Base64 conversion successful, length: ${imageData.length}');
+
+          // Add data URL prefix for proper display
+          if (!imageData.startsWith('data:image')) {
+            // Determine MIME type based on file extension
+            String mimeType = 'image/jpeg'; // default
+            String fileName = imageFile!.name.toLowerCase();
+            if (fileName.endsWith('.png')) {
+              mimeType = 'image/png';
+            } else if (fileName.endsWith('.gif')) {
+              mimeType = 'image/gif';
+            } else if (fileName.endsWith('.webp')) {
+              mimeType = 'image/webp';
+            }
+
+            imageData = 'data:$mimeType;base64,$imageData';
+          }
+        }
+
+        // Save the rucher data to Firebase
         await _apiculteursRef.child('${apiculteur.id}/$newRucherId').set({
-          'address': addressController.text,
-          'desc': descController.text,
-          'pic': picController.text,
+          'address': addressController.text.trim(),
+          'desc': descController.text.trim(),
+          'pic': imageData, // Store base64 data with proper prefix
         });
 
+        // Close loading dialog
+        Navigator.of(context).pop();
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rucher added successfully')),
+          SnackBar(
+            content: Text('Rucher "$newRucherId" added successfully!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
         );
+
+        print('Rucher added successfully with image data length: ${imageData.length}');
+
       } catch (e) {
+        // Close loading dialog
+        Navigator.of(context).pop();
+
+        print('Error adding rucher: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding rucher: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error adding rucher: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }
   }
-
   // Edit a rucher field
   Future<void> _editRucher(RucherInfo rucher) async {
     final String? apiculteurId = _rucherToApiculteurMap[rucher.id];
@@ -907,97 +1570,158 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                       });
                     },
                     children: apiculteur.ruchers.map((rucher) {
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                        elevation: rucher.alertCount> 0 ? 3 : 1,
-                        color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8.0),
-                                child: Image(
-                                  image: AssetImage('assets/${rucher.picUrl}'),
-                                  width: 100,
-                                  height: 100,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
+                      return // Replace the Card widget in your rucher list with this fixed version:
+
+                        Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                          elevation: rucher.alertCount > 0 ? 3 : 1,
+                          color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column( // Changed from Row to Column for better mobile layout
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // First row: Image and main content
+                                Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          rucher.id,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
-                                          ),
-                                        ),
-                                        // Enhanced alert indicator
-                                        if (rucher.alertCount > 0) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red,
-                                              borderRadius: BorderRadius.circular(12),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.red.withOpacity(0.3),
-                                                  spreadRadius: 1,
-                                                  blurRadius: 2,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text('📍 ${rucher.address}'),
-                                    Text('📝 ${rucher.description}'),
-                                    Text('🐝 Ruches: ${rucher.rucheCount}'),
-                                    // Show alert text if there are alerts
-                                    if (rucher.alertCount> 0)
-                                      Text(
-                                        '🚨 ${rucher.alertCount} alerte(s) active(s)',
-                                        style: TextStyle(
-                                          color: Colors.red.shade700,
-                                          fontWeight: FontWeight.bold,
+                                    // Image container with fixed size
+                                    Container(
+                                      width: 80, // Reduced from 100
+                                      height: 80, // Reduced from 100
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8.0),
+                                        child: buildImageFromBase64OrPath(
+                                          rucher.picUrl,
+                                          width: 80,
+                                          height: 80,
                                         ),
                                       ),
+                                    ),
+                                    const SizedBox(width: 12), // Reduced from 16
+
+                                    // Flexible content area
+                                    Expanded( // This is crucial - it prevents overflow
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Title row with alert indicator
+                                          Row(
+                                            children: [
+                                              Flexible( // Allow text to wrap if needed
+                                                child: Text(
+                                                  rucher.id,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis, // Handle long text
+                                                ),
+                                              ),
+                                              // Enhanced alert indicator
+                                              if (rucher.alertCount > 0) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Reduced padding
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red,
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.red.withOpacity(0.3),
+                                                        spreadRadius: 1,
+                                                        blurRadius: 2,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Text(
+                                                    '⚠️ ${rucher.alertCount}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+
+                                          // Address with proper text wrapping
+                                          Text(
+                                            '📍 ${rucher.address}',
+                                            style: const TextStyle(fontSize: 14),
+                                            maxLines: 2, // Allow up to 2 lines
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+
+                                          // Description with proper text wrapping
+                                          Text(
+                                            '📝 ${rucher.description}',
+                                            style: const TextStyle(fontSize: 14),
+                                            maxLines: 2, // Allow up to 2 lines
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+
+                                          // Ruche count
+                                          Text(
+                                            '🐝 Ruches: ${rucher.rucheCount}',
+                                            style: const TextStyle(fontSize: 14),
+                                          ),
+
+                                          // Show alert text if there are alerts
+                                          if (rucher.alertCount > 0) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '🚨 ${rucher.alertCount} alerte(s) active(s)',
+                                              style: TextStyle(
+                                                color: Colors.red.shade700,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
-                              ),
-                              // Only show edit/delete buttons for admin or the owner apiculteur
-                              if (_userRole == UserRole.admin ||
-                                  (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur))
-                                Column(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _editRucher(rucher),
-                                      tooltip: 'Edit Rucher',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () => _deleteRucher(rucher),
-                                      tooltip: 'Delete Rucher',
-                                    ),
-                                  ],
-                                ),
-                            ],
+
+                                // Second row: Action buttons (moved below to avoid crowding)
+                                if (_userRole == UserRole.admin ||
+                                    (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur)) ...[
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.edit, size: 18),
+                                        label: const Text('Modifier'),
+                                        onPressed: () => _editRucher(rucher),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                                        label: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                        onPressed: () => _deleteRucher(rucher),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
+                        );
                     }).toList(),
                   ),
                 );
