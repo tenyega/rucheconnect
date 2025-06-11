@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:tp_flutter/ruche_detailpage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
 
 // Data model for individual ruche data points
 class RucheDataPoint {
@@ -578,114 +579,6 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     return ruche.getLatestDataPoint();
   }
 
-  // Edit a rucher
-  Future<void> _editRucher(RucherWithRuches rucher) async {
-    final TextEditingController addressController = TextEditingController(text: rucher.address);
-    final TextEditingController descController = TextEditingController(text: rucher.description);
-    final TextEditingController picController = TextEditingController(text: rucher.picUrl);
-
-    final bool? result = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Edit Rucher'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                ),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-                TextField(
-                  controller: picController,
-                  decoration: const InputDecoration(labelText: 'Picture filename'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result == true) {
-      final apiculteurId = rucher.ruches.isNotEmpty ? rucher.ruches.first.apiculteurId : null;
-
-      if (apiculteurId != null) {
-        try {
-          final updates = {
-            'address': addressController.text.trim(),
-            'desc': descController.text.trim(),
-            'pic': picController.text.trim(),
-          };
-
-          await _apiculteursRef.child('$apiculteurId/${rucher.id}').update(updates);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Rucher updated successfully')),
-          );
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error updating rucher: ${e.toString()}')),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _deleteRucher(RucherWithRuches rucher) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Rucher'),
-          content: Text('Are you sure you want to delete rucher ${rucher.id}? This will also delete all ruches in this rucher.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed == true) {
-      final apiculteurId = rucher.ruches.isNotEmpty ? rucher.ruches.first.apiculteurId : null;
-
-      if (apiculteurId != null) {
-        try {
-          await _apiculteursRef.child('$apiculteurId/${rucher.id}').remove();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Rucher deleted successfully')),
-          );
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting rucher: ${e.toString()}')),
-          );
-        }
-      }
-    }
-  }
 
   Future<void> _deleteRuche(RucheInfo ruche) async {
     final bool? confirmed = await showDialog<bool>(
@@ -725,6 +618,44 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
           );
         }
       }
+    }
+  }
+  String extractBase64Data(String base64String) {
+    // Remove the data URL prefix (data:image/jpeg;base64,)
+    if (base64String.contains(',')) {
+      return base64String.split(',')[1];
+    }
+    return base64String;
+  }
+  Widget buildBase64Image(String base64String, {double? width, double? height}) {
+    try {
+      // Extract pure base64 data
+      String cleanBase64 = extractBase64Data(base64String);
+
+      // Decode base64 to bytes
+      Uint8List bytes = base64Decode(cleanBase64);
+
+      return Image.memory(
+        bytes,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: width,
+            height: height,
+            color: Colors.grey[300],
+            child: Icon(Icons.error, color: Colors.red),
+          );
+        },
+      );
+    } catch (e) {
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.grey[300],
+        child: Icon(Icons.image_not_supported),
+      );
     }
   }
 
@@ -793,6 +724,73 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     }
   }
 
+  Widget _buildRucherImage(String imageData) {
+    try {
+      // Check if it's a Base64 string (typically starts with data: or just the base64 part)
+      if (imageData.startsWith('data:image/') || _isBase64String(imageData)) {
+        return buildBase64Image(imageData, height: 200);
+      } else {
+        // It's a filename/URL - handle accordingly
+        if (imageData.startsWith('img') || imageData.startsWith('img')) {
+          // It's a URL
+
+          return Image.asset('assets/$imageData',
+            height: 50,
+            width: 50,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[300],
+                child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
+              );
+            },
+          );
+         // return Image.network(
+           // imageData,
+           // height: 200,
+            //fit: BoxFit.cover,
+            //errorBuilder: (context, error, stackTrace) {
+              //return Container(
+                //color: Colors.grey[300],
+                //child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
+              //);
+            //},
+          //);
+        } else {
+          // It's a local asset or file
+          return Image.asset(
+            imageData,
+            height: 50,
+            width: 50,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[300],
+                child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
+              );
+            },
+          );
+        }
+      }
+    } catch (e) {
+      // Fallback for any errors
+      return Container(
+        color: Colors.grey[300],
+        child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
+      );
+    }
+  }
+
+  bool _isBase64String(String str) {
+    try {
+      // Basic check for Base64 pattern
+      RegExp base64RegExp = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
+      return base64RegExp.hasMatch(str) && str.length % 4 == 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
   bool _canUserModify(ApiculteurWithRuchers apiculteur) {
     return _userRole == UserRole.admin ||
         (_userRole == UserRole.apiculteur && apiculteur.email == _currentUserEmail);
@@ -805,6 +803,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
         child: Text('Accès non autorisé'),
       );
     }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Liste des ruches"),
@@ -878,17 +877,17 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8.0),
-                                    child: Image.asset(
-                                      'assets/${rucher.picUrl}',
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(Icons.broken_image, size: 100),
+                                  Container(
+                                    height: 200,
+                                    width: 120, // Fixed width instead of double.infinity
+                                    child: rucher.picUrl != null && rucher.picUrl!.isNotEmpty
+                                        ? _buildRucherImage(rucher.picUrl!)
+                                        : Container(
+                                      color: Colors.grey[300],
+                                      child: Icon(Icons.image, size: 50, color: Colors.grey[600]),
                                     ),
                                   ),
+
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
@@ -905,22 +904,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                                       ],
                                     ),
                                   ),
-                                  if (canModify)
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit),
-                                          onPressed: () => _editRucher(rucher),
-                                          tooltip: 'Edit Rucher',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete),
-                                          onPressed: () => _deleteRucher(rucher),
-                                          tooltip: 'Delete Rucher',
-                                        ),
-                                      ],
-                                    ),
+
                                 ],
                               ),
                               const SizedBox(height: 8),
