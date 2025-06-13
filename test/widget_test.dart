@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
-import 'package:tp_flutter/main.dart';
+import 'package:tp_flutter/ruche.dart'; // Make sure this contains RucheInfo
+import 'package:tp_flutter/widget/ruche_card.dart'; // ✅ new widget you just created
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('RucheCard displays temperature and humidity', (WidgetTester tester) async {
+    final rucheInfo = RucheInfo(
+      id: 'ruche_001',
+      rucherId: 'rucher_001',
+      apiculteurId: 'api_001',
+      dataPoints: {
+        '1000': RucheDataPoint(
+          timestamp: DateTime.now(),
+          temperature: 25,
+          humidity: 70,
+          couvercle: 0,
+          alert: 0,
+        ),
+      },
+    );
 
-  setUpAll(() async {
-    // Initialize Firebase before tests
-    await Firebase.initializeApp();
-  });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RucheCard(ruche: rucheInfo),
+        ),
+      ),
+    );
 
-  testWidgets('RucheConnectée app loads successfully', (WidgetTester tester) async {
-    // Mock a signed-in user for FirebaseAuth if needed
-    final mockUser = MockUser(isAnonymous: false, uid: 'test-user');
-    final mockAuth = MockFirebaseAuth(mockUser: mockUser);
-
-    // You might need to inject mockAuth into your app, depending on your AuthGate implementation.
-    // If not injectable, test a lower-level widget that doesn't depend on Firebase.
-
-    await tester.pumpWidget(const MyApp());
-    await tester.pumpAndSettle();
-
-    // Look for a known text to confirm rendering
-    expect(find.text('Mes Ruchers'), findsOneWidget);
+    expect(find.text('ruche_001'), findsOneWidget);
+    expect(find.textContaining('Temp: 25°C'), findsOneWidget);
+    expect(find.textContaining('Hum: 70%'), findsOneWidget);
   });
 }
