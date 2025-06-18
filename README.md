@@ -91,7 +91,6 @@ Master Management Digital – Université [Nom] – 2025
 
 
 ## Email test@gmail.com
-<<<<<<< HEAD
 ### Password 123456
 
 
@@ -108,4 +107,3 @@ Master Management Digital – Université [Nom] – 2025
 - 
 =======
 ### Password 123456
->>>>>>> 8627a8a1de90d9578adc39174c73a33599c0b042
