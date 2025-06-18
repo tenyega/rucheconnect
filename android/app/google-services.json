@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "147038649239",
+    "firebase_url": "https://rucheconnect-a4363-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "rucheconnect-a4363",
+    "storage_bucket": "rucheconnect-a4363.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147038649239:android:032c2564ae0c29264fa2d2",
+        "android_client_info": {
+          "package_name": "com.example.tp_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFI_GKFpDo4vIUqRitn6xRD9LxRojZrYc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -838,32 +838,56 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
       if (email == 'test@gmail.com') {
         setState(() {
           _userRole = UserRole.admin;
-        });
-        await _loadApiculteurs();
-      }
-      // Check if the user is an apiculteur (email starts with api and ends with @email.com)
-      else if (email.startsWith('api') && email.endsWith('@email.com')) {
-        setState(() {
-          _userRole = UserRole.apiculteur;
-        });
-        await _loadCurrentApiculteur(email);
-      }
-      else {
-        // If not admin or apiculteur, set to unknown role
-        setState(() {
-          _userRole = UserRole.unknown;
           _isLoading = false;
         });
+      } else {
+        // Check if the email exists in the apiculteurs database
+        try {
+          final DatabaseReference apiculteursRef = FirebaseDatabase.instance.ref('apiculteurs');
+          final snapshot = await apiculteursRef.get();
+
+          bool isApiculteur = false;
+
+          if (snapshot.exists && snapshot.value != null) {
+            final Map<dynamic, dynamic> apiculteurs = snapshot.value as Map<dynamic, dynamic>;
+
+            // Check if any apiculteur has this email
+            for (var apiculteurData in apiculteurs.values) {
+              if (apiculteurData is Map && apiculteurData['email'] == email) {
+                isApiculteur = true;
+                break;
+              }
+            }
+          }
+
+          if (isApiculteur) {
+            setState(() {
+              _userRole = UserRole.apiculteur;
+              _isLoading = false;
+            });
+          } else {
+            // Email not found in apiculteurs - set to unknown role
+            setState(() {
+              _userRole = UserRole.unknown;
+              _isLoading = false;
+            });
+          }
+        } catch (e) {
+          // Error accessing database - set to unknown role
+          setState(() {
+            _userRole = UserRole.unknown;
+            _isLoading = false;
+          });
+        }
       }
     } else {
-      // User not authenticated
+      // No current user - set to unknown role
       setState(() {
         _userRole = UserRole.unknown;
         _isLoading = false;
       });
     }
   }
-
   Future<void> _loadCurrentApiculteur(String email) async {
     try {
       final snapshot = await _apiculteursRef.get();
@@ -1004,16 +1028,109 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
       return;
     }
 
-    // For admin role, load all apiculteurs
-    setState(() {
-      _apiculteurs = [];
-      _rucherToApiculteurMap.clear();
+// Helper method - ADD THIS AS A CLASS METHOD in your widget class
+    String? getCurrentApiculteurKey(String email) {
+      // This should map the user's email to their apiculteur key
+      // For example, if "api1@example.com" maps to "api_001"
+      // You might have a mapping like:
+      final emailToApiculteurMap = {
+        'api1@example.com': 'api_001',
+        'api2@example.com': 'api_002',
+        // ... etc
+      };
 
-      if (snapshot.exists && snapshot.value != null) {
-        final map = snapshot.value as Map<dynamic, dynamic>;
-        map.forEach((key, value) {
-          if (key.toString().startsWith('api')) {
+      return emailToApiculteurMap[email];
+
+      // OR if you have this mapping in your database, fetch it from there
+      // OR if the email directly corresponds to the apiculteur key somehow
+    }
+
+    // ✅ ADMIN ONLY: Load all apiculteurs
+    if (_userRole == UserRole.admin) {
+      setState(() {
+        _apiculteurs = [];
+        _rucherToApiculteurMap.clear();
+
+        if (snapshot.exists && snapshot.value != null) {
+          final map = snapshot.value as Map<dynamic, dynamic>;
+          map.forEach((key, value) {
+            if (key.toString().startsWith('api')) {
+              final List<RucherInfo> ruchersList = [];
+              if (value is Map<dynamic, dynamic>) {
+                value.forEach((rKey, rValue) {
+                  if (rKey.toString().startsWith('rucher') && rValue is Map<dynamic, dynamic>) {
+                    int rucheCount = 0;
+                    rValue.forEach((key, _) {
+                      if (key.toString().startsWith('ruche')) {
+                        rucheCount++;
+                      }
+                    });
+
+                    List<RucheInfo> ruches = _loadRuchesForRucher(rValue, rKey.toString(), key.toString());
+                    int alertCount = _countRucherAlerts(rValue);
+
+                    _rucherToApiculteurMap[rKey.toString()] = key.toString();
+
+                    ruchersList.add(RucherInfo(
+                      id: rKey.toString(),
+                      address: rValue['address'] ?? '',
+                      description: rValue['desc'] ?? '',
+                      picUrl: rValue['pic'] ?? '',
+                      rucheCount: rucheCount,
+                      ruches: ruches,
+                      alertCount: alertCount,
+                      isExpanded: false,
+                    ));
+                  }
+                });
+              }
+
+              final sortedRuchers = _sortRuchers(ruchersList);
+
+              _apiculteurs.add(ApiculteurWithRuchers(
+                id: key.toString(),
+                nom: value['nom'] ?? '',
+                prenom: value['prenom'] ?? '',
+                ruchers: sortedRuchers,
+              ));
+            }
+          });
+
+          // ✅ Sort apiculteurs by ID AFTER all are added
+          _apiculteurs.sort((a, b) {
+            final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a.id);
+            final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b.id);
+
+            if (aMatch != null && bMatch != null) {
+              final aNum = int.parse(aMatch.group(1)!);
+              final bNum = int.parse(bMatch.group(1)!);
+              return aNum.compareTo(bNum);
+            }
+
+            return a.id.compareTo(b.id);
+          });
+        }
+
+        _isLoading = false;
+      });
+    }
+// ✅ REGULAR USER: Load only current apiculteur's data
+    else {
+      setState(() {
+        _apiculteurs = [];
+        _rucherToApiculteurMap.clear();
+
+        if (snapshot.exists && snapshot.value != null) {
+          final map = snapshot.value as Map<dynamic, dynamic>;
+
+          // Only process the current user's apiculteur data
+          final currentUserEmail = FirebaseAuth.instance.currentUser?.email ?? '';
+          final currentApiculteurKey = getCurrentApiculteurKey(currentUserEmail); // Fixed: removed underscore
+
+          if (currentApiculteurKey != null && map.containsKey(currentApiculteurKey)) {
+            final value = map[currentApiculteurKey];
             final List<RucherInfo> ruchersList = [];
+
             if (value is Map<dynamic, dynamic>) {
               value.forEach((rKey, rValue) {
                 if (rKey.toString().startsWith('rucher') && rValue is Map<dynamic, dynamic>) {
@@ -1024,10 +1141,10 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                     }
                   });
 
-                  List<RucheInfo> ruches = _loadRuchesForRucher(rValue, rKey.toString(), key.toString());
+                  List<RucheInfo> ruches = _loadRuchesForRucher(rValue, rKey.toString(), currentApiculteurKey);
                   int alertCount = _countRucherAlerts(rValue);
 
-                  _rucherToApiculteurMap[rKey.toString()] = key.toString();
+                  _rucherToApiculteurMap[rKey.toString()] = currentApiculteurKey;
 
                   ruchersList.add(RucherInfo(
                     id: rKey.toString(),
@@ -1045,34 +1162,25 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
 
             final sortedRuchers = _sortRuchers(ruchersList);
 
+            // Add only the current user's apiculteur
             _apiculteurs.add(ApiculteurWithRuchers(
-              id: key.toString(),
+              id: currentApiculteurKey,
               nom: value['nom'] ?? '',
               prenom: value['prenom'] ?? '',
               ruchers: sortedRuchers,
             ));
+
+            // Set the current apiculteur ID
+            _currentApiculteurId = currentApiculteurKey;
           }
-        });
+        }
 
-        // ✅ Sort apiculteurs by ID AFTER all are added
-        _apiculteurs.sort((a, b) {
-          final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a.id);
-          final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b.id);
+        _isLoading = false;
+      });
+    }
 
-          if (aMatch != null && bMatch != null) {
-            final aNum = int.parse(aMatch.group(1)!);
-            final bNum = int.parse(bMatch.group(1)!);
-            return aNum.compareTo(bNum);
-          }
 
-          return a.id.compareTo(b.id);
-        });
-      }
-
-      _isLoading = false;
-    });
   }
-
 
 
   Future<void> _addRucher(ApiculteurWithRuchers apiculteur) async {
@@ -1510,7 +1618,6 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                 final apiculteur = _apiculteurs[index];
 
                 // Calculate total alerts for this apiculteur
-                //int apiculteurAlerts = apiculteur.ruchers.fold(0, (sum, rucher) => sum + rucher.alertCount);
                 int apiculteurAlerts = apiculteur.ruchers.fold(
                   0,
                       (total, rucher) => total + rucher.alertCount,
@@ -1533,7 +1640,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '⚠️ ${_getTotalActiveAlerts()}',
+                              '⚠️ $apiculteurAlerts', // ✅ Fixed: Use apiculteurAlerts instead of _getTotalActiveAlerts()
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -1549,7 +1656,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                       color: apiculteurAlerts > 0 ? Colors.red : null,
                     ),
                     subtitle: Text(
-                      '${apiculteur.ruchers.length} ruchers${apiculteurAlerts > 0 ? ' - ${_getTotalActiveAlerts()} alerte(s)' : ''}',
+                      '${apiculteur.ruchers.length} ruchers${apiculteurAlerts > 0 ? ' - $apiculteurAlerts alerte(s)' : ''}', // ✅ Fixed: Use apiculteurAlerts
                       style: TextStyle(
                         color: apiculteurAlerts > 0 ? Colors.red.shade700 : null,
                         fontWeight: apiculteurAlerts > 0 ? FontWeight.w600 : null,
@@ -1563,165 +1670,163 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                       tooltip: 'Add Rucher',
                     )
                         : null,
-                    initiallyExpanded: apiculteur.isExpanded || _getTotalActiveAlerts() > 0, // Auto-expand if alerts
+                    initiallyExpanded: apiculteur.isExpanded || apiculteurAlerts > 0, // ✅ Fixed: Use apiculteurAlerts instead of _getTotalActiveAlerts()
                     onExpansionChanged: (expanded) {
                       setState(() {
                         apiculteur.isExpanded = expanded;
                       });
                     },
                     children: apiculteur.ruchers.map((rucher) {
-                      return // Replace the Card widget in your rucher list with this fixed version:
-
-                        Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                          elevation: rucher.alertCount > 0 ? 3 : 1,
-                          color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column( // Changed from Row to Column for better mobile layout
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // First row: Image and main content
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Image container with fixed size
-                                    Container(
-                                      width: 80, // Reduced from 100
-                                      height: 80, // Reduced from 100
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(8.0),
-                                        child: buildImageFromBase64OrPath(
-                                          rucher.picUrl,
-                                          width: 80,
-                                          height: 80,
-                                        ),
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                        elevation: rucher.alertCount > 0 ? 3 : 1,
+                        color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column( // Changed from Row to Column for better mobile layout
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // First row: Image and main content
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Image container with fixed size
+                                  Container(
+                                    width: 80, // Reduced from 100
+                                    height: 80, // Reduced from 100
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      child: buildImageFromBase64OrPath(
+                                        rucher.picUrl,
+                                        width: 80,
+                                        height: 80,
                                       ),
                                     ),
-                                    const SizedBox(width: 12), // Reduced from 16
+                                  ),
+                                  const SizedBox(width: 12), // Reduced from 16
 
-                                    // Flexible content area
-                                    Expanded( // This is crucial - it prevents overflow
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          // Title row with alert indicator
-                                          Row(
-                                            children: [
-                                              Flexible( // Allow text to wrap if needed
-                                                child: Text(
-                                                  rucher.id,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
-                                                    color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis, // Handle long text
+                                  // Flexible content area
+                                  Expanded( // This is crucial - it prevents overflow
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Title row with alert indicator
+                                        Row(
+                                          children: [
+                                            Flexible( // Allow text to wrap if needed
+                                              child: Text(
+                                                rucher.id,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: rucher.alertCount > 0 ? Colors.red.shade800 : null,
                                                 ),
-                                              ),
-                                              // Enhanced alert indicator
-                                              if (rucher.alertCount > 0) ...[
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Reduced padding
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.red,
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.red.withOpacity(0.3),
-                                                        spreadRadius: 1,
-                                                        blurRadius: 2,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: Text(
-                                                    '⚠️ ${rucher.alertCount}',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-
-                                          // Address with proper text wrapping
-                                          Text(
-                                            '📍 ${rucher.address}',
-                                            style: const TextStyle(fontSize: 14),
-                                            maxLines: 2, // Allow up to 2 lines
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-
-                                          // Description with proper text wrapping
-                                          Text(
-                                            '📝 ${rucher.description}',
-                                            style: const TextStyle(fontSize: 14),
-                                            maxLines: 2, // Allow up to 2 lines
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-
-                                          // Ruche count
-                                          Text(
-                                            '🐝 Ruches: ${rucher.rucheCount}',
-                                            style: const TextStyle(fontSize: 14),
-                                          ),
-
-                                          // Show alert text if there are alerts
-                                          if (rucher.alertCount > 0) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '🚨 ${rucher.alertCount} alerte(s) active(s)',
-                                              style: TextStyle(
-                                                color: Colors.red.shade700,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
+                                                overflow: TextOverflow.ellipsis, // Handle long text
                                               ),
                                             ),
+                                            // Enhanced alert indicator
+                                            if (rucher.alertCount > 0) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Reduced padding
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.red.withOpacity(0.3),
+                                                      spreadRadius: 1,
+                                                      blurRadius: 2,
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Text(
+                                                  '⚠️ ${rucher.alertCount}',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ],
+                                        ),
+                                        const SizedBox(height: 8),
+
+                                        // Address with proper text wrapping
+                                        Text(
+                                          '📍 ${rucher.address}',
+                                          style: const TextStyle(fontSize: 14),
+                                          maxLines: 2, // Allow up to 2 lines
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+
+                                        // Description with proper text wrapping
+                                        Text(
+                                          '📝 ${rucher.description}',
+                                          style: const TextStyle(fontSize: 14),
+                                          maxLines: 2, // Allow up to 2 lines
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+
+                                        // Ruche count
+                                        Text(
+                                          '🐝 Ruches: ${rucher.rucheCount}',
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+
+                                        // Show alert text if there are alerts
+                                        if (rucher.alertCount > 0) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '🚨 ${rucher.alertCount} alerte(s) active(s)',
+                                            style: TextStyle(
+                                              color: Colors.red.shade700,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
                                         ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // Second row: Action buttons (moved below to avoid crowding)
+                              if (_userRole == UserRole.admin ||
+                                  (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur)) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      label: const Text('Modifier'),
+                                      onPressed: () => _editRucher(rucher),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                                      label: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                      onPressed: () => _deleteRucher(rucher),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       ),
                                     ),
                                   ],
                                 ),
-
-                                // Second row: Action buttons (moved below to avoid crowding)
-                                if (_userRole == UserRole.admin ||
-                                    (apiculteur.id == _currentApiculteurId && _userRole == UserRole.apiculteur)) ...[
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.edit, size: 18),
-                                        label: const Text('Modifier'),
-                                        onPressed: () => _editRucher(rucher),
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                        label: const Text('Supprimer', style: TextStyle(color: Colors.red)),
-                                        onPressed: () => _deleteRucher(rucher),
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
                               ],
-                            ),
+                            ],
                           ),
-                        );
+                        ),
+                      );
                     }).toList(),
                   ),
                 );

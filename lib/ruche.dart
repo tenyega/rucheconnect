@@ -287,22 +287,64 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
   }
 
   Future<void> _checkUserRole() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final User? currentUser = FirebaseAuth.instance.currentUser;
 
-    if (user != null && user.email != null) {
-      final email = user.email!;
-      _currentUserEmail = email;
+    if (currentUser != null && currentUser.email != null) {
+      final String email = currentUser.email!;
 
+      // Check if the user is an admin (email is test@gmail.com)
       if (email == 'test@gmail.com') {
-        _userRole = UserRole.admin;
-      } else if (email.endsWith('@email.com')) {
-        _userRole = UserRole.apiculteur;
+        setState(() {
+          _userRole = UserRole.admin;
+          _isLoading = false;
+        });
       } else {
-        _userRole = UserRole.unknown;
-      }
-    }
+        // Check if the email exists in the apiculteurs database
+        try {
+          final DatabaseReference apiculteursRef = FirebaseDatabase.instance.ref('apiculteurs');
+          final snapshot = await apiculteursRef.get();
 
-    await _loadApiculteurs();
+          bool isApiculteur = false;
+
+          if (snapshot.exists && snapshot.value != null) {
+            final Map<dynamic, dynamic> apiculteurs = snapshot.value as Map<dynamic, dynamic>;
+
+            // Check if any apiculteur has this email
+            for (var apiculteurData in apiculteurs.values) {
+              if (apiculteurData is Map && apiculteurData['email'] == email) {
+                isApiculteur = true;
+                break;
+              }
+            }
+          }
+
+          if (isApiculteur) {
+            setState(() {
+              _userRole = UserRole.apiculteur;
+              _isLoading = false;
+            });
+          } else {
+            // Email not found in apiculteurs - set to unknown role
+            setState(() {
+              _userRole = UserRole.unknown;
+              _isLoading = false;
+            });
+          }
+        } catch (e) {
+          // Error accessing database - set to unknown role
+          setState(() {
+            _userRole = UserRole.unknown;
+            _isLoading = false;
+          });
+        }
+      }
+    } else {
+      // No current user - set to unknown role
+      setState(() {
+        _userRole = UserRole.unknown;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadApiculteurs() async {
@@ -310,6 +352,31 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
       final snapshot = await _apiculteursRef.get();
       _loadApiculteursFromSnapshot(snapshot);
 
+      _apiculteursRef.onValue.listen((event) {
+        _loadApiculteursFromSnapshot(event.snapshot);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: ${e.toString()}')),
+      );
+    }
+  }
+
+  // Add this method to your _RucherRucheViewState class:
+
+  Future<void> _loadCurrentApiculteur(String userEmail) async {
+    try {
+      // Store the current user email for filtering
+      _currentUserEmail = userEmail;
+
+      final snapshot = await _apiculteursRef.get();
+      _loadApiculteursFromSnapshot(snapshot);
+
+      // Set up the listener for real-time updates
       _apiculteursRef.onValue.listen((event) {
         _loadApiculteursFromSnapshot(event.snapshot);
       });
@@ -806,7 +873,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Liste des ruches"),
+        title: Text(_userRole == UserRole.admin ? 'Liste des ruches (Admin)' : 'Mes ruches'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -819,7 +886,12 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
               setState(() {
                 _isLoading = true;
               });
-              _loadApiculteurs();
+              // Conditional loading based on user role
+              if (_userRole == UserRole.admin) {
+                _loadApiculteurs(); // Load all apiculteurs for admin
+              } else {
+                _loadCurrentApiculteur(FirebaseAuth.instance.currentUser?.email ?? ''); // Load only current user's data
+              }
             },
           ),
         ],
@@ -841,8 +913,8 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber, color: Colors.red, size: 24),
-                  const SizedBox(width: 12),
+                  Icon(Icons.warning_amber, color: Colors.red, size: 20),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '⚠️ ${_getTotalActiveAlerts()} ruche(s) en alerte - Vol de miel détecté!',
@@ -867,7 +939,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                   margin: const EdgeInsets.all(8.0),
                   child: ExpansionTile(
                     title: Text('${apiculteur.prenom} ${apiculteur.nom}'),
-                    subtitle: Text('${apiculteur.ruchers.length} ruchers • ${apiculteur.email}'),
+                    subtitle: Text('${apiculteur.ruchers.length} ruchers${_userRole == UserRole.admin ? ' • ${apiculteur.email}' : ''}'), // Only show email for admin
                     children: [
                       ...apiculteur.ruchers.map((rucher) {
                         return Padding(
@@ -878,8 +950,8 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
-                                    height: 200,
-                                    width: 120, // Fixed width instead of double.infinity
+                                    height: 150,
+                                    width: 100, // Fixed width instead of double.infinity
                                     child: rucher.picUrl != null && rucher.picUrl!.isNotEmpty
                                         ? _buildRucherImage(rucher.picUrl!)
                                         : Container(
@@ -908,7 +980,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              // Add Ruche button with + sign
+                              // Add Ruche button with + sign - Only show if user can modify
                               if (canModify)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -931,7 +1003,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                               ...rucher.ruches.map((ruche) {
                                 final latestData = getLatestDataPoint(ruche);
                                 final hasAlert = _hasActiveAlert(ruche);
-                                return Card( // Fixed: Changed CardCard to Card
+                                return Card(
                                   // More prominent alert coloring
                                   color: hasAlert ? Colors.red.shade100 : null,
                                   elevation: hasAlert ? 4 : 1,
@@ -947,15 +1019,15 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                                           Icon(
                                             hasAlert ? Icons.warning : Icons.hive,
                                             color: hasAlert ? Colors.red : Colors.amber,
-                                            size: 30,
+                                            size: 10,
                                           ),
                                           if (hasAlert)
                                             Positioned(
                                               right: 0,
                                               top: 0,
                                               child: Container(
-                                                width: 12,
-                                                height: 12,
+                                                width: 10,
+                                                height: 10,
                                                 decoration: BoxDecoration(
                                                   color: Colors.red,
                                                   shape: BoxShape.circle,
@@ -1022,13 +1094,13 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.error, color: Colors.red, size: 2),
+                                                    Icon(Icons.error, color: Colors.red, size: 16),
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       'Vol de miel détecté!',
                                                       style: TextStyle(
                                                         color: Colors.red.shade800,
-                                                        fontSize: 12,
+                                                        fontSize: 10,
                                                         fontWeight: FontWeight.normal,
                                                       ),
                                                     ),
@@ -1073,7 +1145,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                                                 color: ruche.alertActive ? Colors.red : Colors.green,
                                                 size: 24,
                                               ),
-                                              onPressed: () => _toggleAlertStatus(ruche), // ← This calls the function
+                                              onPressed: () => _toggleAlertStatus(ruche),
                                               tooltip: ruche.alertActive
                                                   ? 'Désactiver les alertes'
                                                   : 'Activer les alertes',
@@ -1116,5 +1188,6 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
         ],
       ),
     );
+
   }
 }

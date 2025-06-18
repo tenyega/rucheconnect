@@ -51,31 +51,55 @@ class _MyHomePageState extends State<MyHomePage> {
           _userRole = UserRole.admin;
           _isLoading = false;
         });
-      }
-      // Check if the user is an apiculteur (email starts with api and ends with @email.com)
-      else if (email.startsWith('api') && email.endsWith('@email.com')) {
-        setState(() {
-          _userRole = UserRole.apiculteur;
-          _currentIndex = 0; // Reset to first apiculteur page (Rucher)
-          _isLoading = false;
-        });
-      }
-      else {
-        // If not admin or apiculteur, set to unknown role
-        setState(() {
-          _userRole = UserRole.unknown;
-          _isLoading = false;
-        });
+      } else {
+        // Check if the email exists in the apiculteurs database
+        try {
+          final DatabaseReference apiculteursRef = FirebaseDatabase.instance.ref('apiculteurs');
+          final snapshot = await apiculteursRef.get();
+
+          bool isApiculteur = false;
+
+          if (snapshot.exists && snapshot.value != null) {
+            final Map<dynamic, dynamic> apiculteurs = snapshot.value as Map<dynamic, dynamic>;
+
+            // Check if any apiculteur has this email
+            for (var apiculteurData in apiculteurs.values) {
+              if (apiculteurData is Map && apiculteurData['email'] == email) {
+                isApiculteur = true;
+                break;
+              }
+            }
+          }
+
+          if (isApiculteur) {
+            setState(() {
+              _userRole = UserRole.apiculteur;
+              _currentIndex = 0; // Reset to first apiculteur page (Rucher)
+              _isLoading = false;
+            });
+          } else {
+            // Email not found in apiculteurs - set to unknown role
+            setState(() {
+              _userRole = UserRole.unknown;
+              _isLoading = false;
+            });
+          }
+        } catch (e) {
+          // Error accessing database - set to unknown role
+          setState(() {
+            _userRole = UserRole.unknown;
+            _isLoading = false;
+          });
+        }
       }
     } else {
-      // User not authenticated
+      // No current user - set to unknown role
       setState(() {
         _userRole = UserRole.unknown;
         _isLoading = false;
       });
     }
   }
-
   void _onItemTapped(int index) {
     if (_userRole == UserRole.admin) {
       // For admin
