@@ -1,117 +1,94 @@
-# 🐝 Ruche Connectée – Suivi intelligent des ruches en temps réel
+# 🐝 Ruche Connectée – Application Flutter
 
-Ce projet propose une solution IoT + Mobile + Web pour la surveillance intelligente des ruches, destinée aux apiculteurs et encadrée dans le cadre d’un projet pédagogique (Module Ingénierie de Projet, 2025).
+Surveillance intelligente de ruches via capteurs IoT, Firebase et application mobile Flutter.
 
-## 📦 Contenu du projet
+## 📱 Fonctionnalités principales
 
-- ESP32 + capteurs (DHT11, capteur de couvercle)
-  - Base de données Firebase Realtime + Auth
-  - Application mobile Flutter
-  - Application Web (Spring Boot + Spring Security)
-  - Interface Admin (CRUD apiculteurs)
-  - Alertes en temps réel par email (Firebase Functions)
-  - Tableau de bord & graphiques historiques
+- Authentification sécurisée via **Firebase Auth**
+- Gestion complète des ruchers et ruches par l’apiculteur
+- Visualisation des mesures (🌡️ Température / 💧 Humidité)
+- Alerte en cas d’ouverture non autorisée du couvercle
+- Désactivation manuelle de l’alerte pendant visite
+- Graphiques hebdomadaires des données
+- Administration CRUD des apiculteurs (rôle admin)
 
-## 📁 Structure du dépôt
+## 🧑‍💻 Technologies utilisées
 
-📦 ruche-connectee/
-├── 📱 mobile/ → Application Flutter (Android)
-├── 🌐 web/ → Application Web Spring Boot
-├── 🔌 firmware/ → Code Arduino pour ESP32
-├── 📊 data/ → Exports Firebase (CSV, logs)
-├── 📄 docs/ → Diagrammes, plan de test, RTM, recette...
-├── .github/workflows/ → CI/CD GitHub Actions
-└── README.md → Ce fichier
+| Composant | Stack |
+|----------|-------|
+| App Mobile | `Flutter 3.22+`, `Dart` |
+| Authentification | `Firebase Auth` |
+| Base de données | `Firebase Realtime Database` |
+| IoT | `ESP32`, `DHT11`, `contact sec`, `WiFiManager` |
+| Notifications | `Firebase Functions` pour mail d'alerte |
+| Graphiques | `fl_chart`, `intl`, `firebase_database` |
+| Sécurité | RGPD, alertes < 5 min, SLA ≥ 99 % |
+
+## 🗂️ Architecture des données (Firebase)
+
+/apiculteurs/{apiculteurId}
+/ruchers/{apiculteurId}/{rucherId}
+/ruches/{apiculteurId}/{rucherId}/{rucheId}
+/donnees/{apiculteurId}/{rucherId}/{rucheId}/{timestamp}
 
 
-## 🚀 Installation rapide
+## 🔧 Installation locale
 
-### 1. IoT (ESP32)
-
-- Utilisez Arduino IDE
-  - Configurez le Wi-Fi avec WiFiManager
-  - Téléversez `firmware/esp32_ruche.ino` sur l’ESP32
-  - Les données seront envoyées vers Firebase toutes les 30 min
-
-### 2. Mobile (Flutter)
-
+1. Cloner le projet :
 ```bash
-cd mobile/
+git clone https://github.com/ton-org/ruche-connectee-flutter.git
+cd ruche-connectee-flutter
+
+2. Installer les dépendances :
 flutter pub get
+
+3.Configurer Firebase :
+
+Télécharger le fichier google-services.json dans /android/app/
+
+Vérifier la configuration Firebase dans lib/firebase_options.dart
+
+4. Lancer l'application :
 flutter run
 
-Connexion avec Firebase Auth (login + mot de passe)
+🧪 Tests & Qualité
+CI/CD via GitHub Actions (.github/workflows/flutter_ci.yaml)
 
-Visualisation des ruches, alertes, et historiques
+Tests unitaires Flutter (flutter test)
 
-3. Web (Spring Boot)
-cd web/
-./mvnw spring-boot:run
-Interface web sécurisée
+Couverture (flutter test --coverage)
 
-Accès admin pour la gestion des apiculteurs
+Lint automatique (flutter analyze)
 
-🔐 Authentification & Sécurité
-Auth Firebase : rôle apiculteur ou admin
+📸 Preuves M6/M7
+uptime_firebase_M6.png – disponibilité Firebase
 
-JWT sécurisé sur l’interface Web (Spring Security)
+log_email_T02.pdf – déclenchement alerte couvercle
 
-Accès par rôle aux fonctionnalités (RBAC)
+historique_ruche_7j.csv – export données capteurs
 
-📈 KPIs projet (objectifs vs résultats)
-| Indicateur               | Objectif | Résultat mesuré |
-| ------------------------ | -------- | --------------- |
-| Alerte email             | ≤ 5 min  | ✅ 3 min 12 s    |
-| MAJ Firebase             | ≤ 30 min | ✅ 28 min        |
-| SLA disponibilité        | ≥ 99 %   | ✅ 99.3 %        |
-| Satisfaction utilisateur | ≥ 90 %   | ✅ 93 %          |
-| ROI                      | ≥ 120 %  | ✅ 127 %         |
+APK : build/app/outputs/flutter-apk/app-debug.apk
 
-📋 Documents associés
-✔️ Plan de test détaillé
+🧑‍🔧 Comptes de test
+| Rôle       | Login                                   | Mot de passe |
+| ---------- | --------------------------------------- | ------------ |
+| Admin      | [test@gmail.com](mailto:test@gmail.com) | 123456       |
+| Apiculteur | [api1@email.com](mailto:api1@email.com) | 111111       |
 
-✔️ Cahier de recette
+🎯 Prochaines étapes
+Mode hors ligne + synchronisation différée
 
-✔️ WBS + dictionnaire
+Ajout caméra / IA pour analyse d’activité
 
-✔️ Spécifications fonctionnelles
+Interface tablette (responsive Flutter)
 
-✔️ Guide utilisateur
-
-📬 Contact
-Support technique : contact@pragma-tec.fr
-
-Dépôt officiel : GitHub – Ruche Connectée
-
-Projet encadré – Master Management Digital & Data – 2025
-
-# tp_flutter
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+📩 Contact
+Projet pédagogique réalisé par Basara Migmar-Dolma – contact@pragma-tec.fr
+Master Management Digital – Université [Nom] – 2025
 
 
-## I have added the dependencies of the Firebase authentification 
- pubspec.yaml
- firebase_auth: 5.4.1
- firebase_core: 3.10.1
- firebase_database: 11.3.1
- 
-then i did 
-## flutter pub get 
-To update the dependencies.
+
+
 
 ## Email test@gmail.com
 <<<<<<< HEAD
