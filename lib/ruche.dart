@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:intl/intl.dart';
 import 'package:tp_flutter/ruche_detailpage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -134,9 +133,6 @@ class RucheInfo {
   RucheDataPoint? getLatestDataPoint() {
     if (dataPoints.isEmpty) return null;
 
-    String? bestKey;
-    RucheDataPoint? bestDataPoint;
-    DateTime? latestTimestamp;
 
     // Sort entries by timestamp, then by key as tie-breaker
     var sortedEntries = dataPoints.entries.toList();
@@ -164,8 +160,7 @@ class RucheInfo {
   String? getLatestDataPointKey() {
     if (dataPoints.isEmpty) return null;
 
-    String? bestKey;
-    DateTime? latestTimestamp;
+
 
     // Sort entries by timestamp, then by key as tie-breaker
     var sortedEntries = dataPoints.entries.toList();
@@ -199,59 +194,23 @@ class RucheInfo {
     return (latestData.alert == 1);
   }
 }
-
-// Email service for sending alerts
-class EmailService {
-  static Future<bool> sendAlertEmail({
-    required String recipientEmail,
-    required String apiculteurName,
-    required String rucheId,
-    required String rucherId,
-  }) async {
-    try {
-      // Replace with your email service endpoint
-      const String emailServiceUrl = 'YOUR_EMAIL_SERVICE_ENDPOINT';
-
-      final response = await http.post(
-        Uri.parse(emailServiceUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'to': recipientEmail,
-          'subject': '🚨 ALERTE RUCHE - Vol de miel détecté',
-          'html': '''
-            <h2>Alerte de Sécurité - Ruche ${rucheId}</h2>
-            <p>Bonjour ${apiculteurName},</p>
-            <p><strong>Une activité suspecte a été détectée sur votre ruche!</strong></p>
-            <ul>
-              <li>Rucher: ${rucherId}</li>
-              <li>Ruche: ${rucheId}</li>
-              <li>Détection: Couvercle ouvert de manière suspecte</li>
-              <li>Heure: ${DateTime.now().toString()}</li>
-            </ul>
-            <p>⚠️ Il est possible que quelqu'un soit en train de voler le miel de votre ruche.</p>
-            <p>Nous vous recommandons de vérifier votre ruche dès que possible.</p>
-            <p>Cordialement,<br>Système de Surveillance des Ruches</p>
-          ''',
-        }),
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Error sending email: $e');
-      return false;
-    }
-  }
-}
-
 // User role enum
 enum UserRole {
   admin,
   apiculteur,
   unknown
 }
+class AlertRecord {
+  final DateTime sentAt;
+  final String dataPointKey;
+  final String alertKey;
 
+  AlertRecord({
+    required this.sentAt,
+    required this.dataPointKey,
+    required this.alertKey,
+  });
+}
 // Main widget for the rucher & ruche view
 class RucherRucheViewState extends StatefulWidget {
   const RucherRucheViewState({Key? key}) : super(key: key);
@@ -266,12 +225,59 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
   bool _isLoading = true;
   UserRole _userRole = UserRole.unknown;
   String? _currentUserEmail;
-  Set<String> _alertsSent = {}; // Track which alerts have been sent
+  //Set<String> _alertsSent = {}; // Track which alerts have been sent
+  Map<String, AlertRecord> _alertsSent = {}; // Changed from Set<String> to Map<String, AlertRecord>
 
   @override
   void initState() {
     super.initState();
     _checkUserRole();
+  }
+
+  bool _shouldSendAlert({
+    required String apiculteurId,
+    required String rucherId,
+    required String rucheId,
+    required String dataPointKey,
+  }) {
+    final alertKey = '${apiculteurId}_${rucherId}_${rucheId}';
+    final now = DateTime.now();
+
+    // Check if we have a record for this ruche
+    if (_alertsSent.containsKey(alertKey)) {
+      final lastAlert = _alertsSent[alertKey]!;
+
+      // If it's the same data point, don't send again
+      if (lastAlert.dataPointKey == dataPointKey) {
+        print('🚫 Skipping alert - same data point already sent: $dataPointKey');
+        return false;
+      }
+
+      // If less than 30 minutes have passed, don't send again
+      final timeDifference = now.difference(lastAlert.sentAt);
+      if (timeDifference.inMinutes < 30) {
+        print('🚫 Skipping alert - cooldown period active (${timeDifference.inMinutes} minutes ago)');
+        return false;
+      }
+    }
+
+    print('✅ Alert should be sent for $alertKey with data point $dataPointKey');
+    return true;
+  }
+
+  void _recordAlertSent({
+    required String apiculteurId,
+    required String rucherId,
+    required String rucheId,
+    required String dataPointKey,
+  }) {
+    final alertKey = '${apiculteurId}_${rucherId}_${rucheId}';
+    _alertsSent[alertKey] = AlertRecord(
+      sentAt: DateTime.now(),
+      dataPointKey: dataPointKey,
+      alertKey: alertKey,
+    );
+    print('📝 Alert recorded: $alertKey -> $dataPointKey at ${DateTime.now()}');
   }
 
   int _getTotalActiveAlerts() {
@@ -378,31 +384,45 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     required String rucherId,
     required RucheDataPoint latestDataPoint,
   }) {
-    // Send email asynchronously to avoid blocking UI
+    // Static flag to prevent overlapping sends - make it instance variable instead
+     bool _isCurrentlySending = false;
+
+
+
+     _isCurrentlySending = true;
+
+    // Send email asynchronously
     Future.microtask(() async {
       try {
-        print('🚨 Sending alert email to: $recipientEmail');
-        print('   Ruche: $rucheId, Rucher: $rucherId');
+        print('🚨 Starting email send process...');
+        print('   To: $recipientEmail');
+        print('   Ruche: $rucheId');
         print('   Temperature: ${latestDataPoint.temperature}°C');
         print('   Humidity: ${latestDataPoint.humidity}%');
         print('   Couvercle: ${latestDataPoint.couvercle == 1 ? "Open" : "Closed"}');
 
+        // ✅ IMPROVED: Send actual alert email with proper data
         await _sendAlertEmail(
           recipientEmail: recipientEmail,
           rucheId: rucheId,
           rucherId: rucherId,
           temperature: latestDataPoint.temperature.toString(),
           humidity: latestDataPoint.humidity.toString(),
-          weight: '0', // You might want to add weight to your data model
+          weight: 'N/A', // You might want to add weight to RucheDataPoint
         );
 
-        print('✅ Alert email sent successfully to $recipientEmail');
+        print('✅ Alert email sent successfully');
+
+        // Add delay to prevent rapid sending
+        await Future.delayed(Duration(seconds: 5));
+
       } catch (e) {
         print('❌ Failed to send alert email: $e');
+      } finally {
+        _isCurrentlySending = false;
       }
     });
   }
-
 
   // Add this method to your _RucherRucheViewState class:
 
@@ -429,13 +449,17 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     }
   }
 
+
+
+
   void _loadApiculteursFromSnapshot(DataSnapshot snapshot) {
     setState(() {
       _apiculteurs = [];
-      _alertsSent.clear();
+      // IMPORTANT: Don't clear _alertsSent here - keep alert history
 
       if (snapshot.exists && snapshot.value != null) {
         final map = snapshot.value as Map<dynamic, dynamic>;
+
         map.forEach((apiKey, apiValue) {
           if (apiKey.toString().startsWith('api') && apiValue is Map<dynamic, dynamic>) {
             final apiculteurEmail = apiValue['email']?.toString() ?? '';
@@ -476,30 +500,11 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                       }
                     });
 
-                    // FIXED: Send alert email logic (UNCOMMENTED)
-                    if (latestDataPoint != null) {
-                      bool checkAlertCondition(RucheDataPoint? latestDataPoint) {
-                        if (latestDataPoint == null) return false;
-                        final alert = latestDataPoint.alert ?? 0;
-                        final couvercle = latestDataPoint.couvercle ?? 0;
-                        return (alert == 1 && couvercle == 1);
-                      }
-
-                      if (checkAlertCondition(latestDataPoint)) {
-                        final alertKey = '${apiKey}_${rucherKey}_${rucheKey}_$latestKey';
-                        if (!_alertsSent.contains(alertKey)) {
-                          // FIXED: Actually call the email sending function
-                          _sendAlertEmailAsync(
-                            recipientEmail: apiculteurEmail,
-                            apiculteurName: '$apiculteurPrenom $apiculteurNom',
-                            rucheId: rucheKey.toString(),
-                            rucherId: rucherKey.toString(),
-                            latestDataPoint: latestDataPoint!,
-                          );
-                          _alertsSent.add(alertKey);
-                        }
-                      }
-                    }
+                    // ✅ REMOVED: Don't check alerts during data loading
+                    // This was causing emails to be sent on every data refresh
+                    // Alert emails should only be sent when:
+                    // 1. User manually activates alerts AND lid is open (handled in _toggleAlertStatus)
+                    // 2. OR when lid opens while alerts are already active (you might want to add this logic separately)
 
                     ruchesList.add(RucheInfo(
                       id: rucheKey.toString(),
@@ -531,7 +536,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
         });
       }
 
-      // Sort logic remains the same...
+      // Sort apiculteurs...
       _apiculteurs.sort((a, b) {
         final aMatch = RegExp(r'api_0*(\d+)').firstMatch(a.id);
         final bMatch = RegExp(r'api_0*(\d+)').firstMatch(b.id);
@@ -546,7 +551,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
       _isLoading = false;
     });
 
-    // Sort ruchers and ruches...
+    // Sort ruchers and ruches
     for (var apiculteur in _apiculteurs) {
       apiculteur.ruchers.sort((a, b) {
         final aNum = int.tryParse(a.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
@@ -563,6 +568,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
       }
     }
   }
+
   Future<String?> _getApiculteurEmail(String apiculteurId) async {
     try {
       final snapshot = await _apiculteursRef.child(apiculteurId).get();
@@ -599,6 +605,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
       print('RucheId: ${ruche.id}');
       print('Current alert status: $currentAlertStatus');
       print('New alert status: $newAlertStatus');
+      print('Current couvercle status: ${latestDataPoint.couvercle == 1 ? "Open" : "Closed"}');
 
       // Get the key for the latest data point
       final latestKey = ruche.getLatestDataPointKey();
@@ -632,9 +639,36 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
             });
             print('✅ Alert ${newAlertStatus ? "activated" : "deactivated"} for ${ruche.id}');
 
-            // Check if we need to send email notification
-            if (newAlertStatus) {
-              await _checkAndSendAlertEmail(ruche, parts);
+            // ✅ NEW: Send alert email ONLY when activating alerts AND lid is open
+            if (newAlertStatus && latestDataPoint.couvercle == 1) {
+              print('🚨 Alert activated AND lid is open - sending alert email');
+
+              // Get apiculteur info for email
+              final apiculteur = _apiculteurs.firstWhere(
+                    (api) => api.id == apiculteurId,
+                orElse: () => throw Exception('Apiculteur not found'),
+              );
+
+              final updatedDataPoint = RucheDataPoint.fromString(updatedValue);
+
+              _sendAlertEmailAsync(
+                recipientEmail: apiculteur.email,
+                apiculteurName: '${apiculteur.prenom} ${apiculteur.nom}',
+                rucheId: ruche.id,
+                rucherId: rucherId,
+                latestDataPoint: updatedDataPoint,
+              );
+
+              _recordAlertSent(
+                apiculteurId: apiculteurId,
+                rucherId: rucherId,
+                rucheId: ruche.id,
+                dataPointKey: latestKey,
+              );
+            } else if (newAlertStatus) {
+              print('ℹ️ Alert activated but lid is closed - no email sent');
+            } else {
+              print('ℹ️ Alert deactivated - no email sent');
             }
           } else {
             throw Exception('Failed to verify database update');
@@ -670,87 +704,43 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     }
   }
 
-  Future<void> _checkAndSendAlertEmail(RucheInfo ruche, List<String> dataParts) async {
-    try {
-      // Assuming the data format is: temperature/humidity/poids/couvercle/alert
-      // Check if couvercle status is 1
-      if (dataParts.length >= 4) {
-        final couvercleStatus = dataParts[3];
-
-        if (couvercleStatus == '1') {
-          print('🚨 Alert activated with couvercle open - sending email notification');
-
-          // Get apiculteur email
-          final apiculteurEmail = await _getApiculteurEmail(ruche.apiculteurId);
-
-          if (apiculteurEmail != null && apiculteurEmail.isNotEmpty) {
-            await _sendAlertEmail(
-              recipientEmail: apiculteurEmail,
-              rucheId: ruche.id,
-              rucherId: ruche.rucherId,
-              temperature: dataParts[0],
-              humidity: dataParts[1],
-              weight: dataParts[2],
-            );
-
-            print('✅ Alert email sent successfully to $apiculteurEmail');
-          } else {
-            print('⚠️ No email found for apiculteur ${ruche.apiculteurId}');
-          }
-        } else {
-          print('ℹ️ Alert activated but couvercle is closed - no email sent');
-        }
-      }
-    } catch (e) {
-      print('❌ Error checking/sending alert email: $e');
-      // Don't throw error here to avoid breaking the main toggle functionality
-    }
-  }
-
 
 
   // Replace your sendEmail method with this corrected version:
   Future<void> sendEmail({
-    required String toEmail,
-    required String subject,
-    required String message,
-  }) async {
-    try {
-      print('🔍 DEBUG: Starting email send process');
-      print('🔍 DEBUG: To Email: $toEmail');
-      print('🔍 DEBUG: Subject: $subject');
+    required String rucherId,
+    required String rucheId,
+    required String email,
+  })  async {
+    const serviceId = 'service_8yivchs';
+    const templateId = 'template_dn9kieg';
+    const userId = 'FTgZiqrq5bPlnYvU4'; // your EmailJS public key
 
-      // Validate email format
-      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(toEmail)) {
-        throw Exception('Invalid email format: $toEmail');
-      }
+    final url = Uri.parse('https://api.emailjs.com/api/v1.0/email/send');
 
-      String result = await FlutterEmailJS.sendEmail(
-        serviceId: 'service_zsqf87l',
-        templateId: 'template_dn9kieg',
-        userId: '6BDGb6ldKOrJ-drKc',
-        accessToken: 'FD-Vh0TBabfYEmIBD1yI3',
-        templateParams: {
-          'to_email': toEmail,
-          'subject': subject,
-          'message': message,
-          'from_name': 'Système de Surveillance des Ruches',
-        },
-      );
+    final response = await http.post(
+      url,
+      headers: {
+        'origin': 'http://localhost', // or 'http://yourdomain.com' (for web), optional on mobile
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'service_id': serviceId,
+        'template_id': templateId,
+        'user_id': userId,
+        'template_params': {
+          'rucher_id': rucherId,
+          'ruche_id': rucheId,
+          'email': email,
+        }
+      }),
+    );
 
-      print('✅ EmailJS Response: $result');
-
-      // Check if the result indicates success
-      if (result.toLowerCase().contains('ok') || result.toLowerCase().contains('success')) {
-        print('✅ Email sent successfully to: $toEmail');
-      } else {
-        print('⚠️  Unexpected response: $result');
-      }
-
-    } catch (error) {
-      print('❌ Error sending email: $error');
-      print('❌ Error type: ${error.runtimeType}');
-      rethrow;
+    if (response.statusCode == 200) {
+      print('✅ Email sent successfully!');
+    } else {
+      print('❌ Failed to send email. Status: ${response.statusCode}');
+      print('❌ Response body: ${response.body}');
     }
   }
 
@@ -843,32 +833,51 @@ Veuillez vérifier votre ruche dès que possible.''',
       print('   Email: $recipientEmail');
       print('   Ruche: $rucheId');
       print('   Rucher: $rucherId');
-      print('   Temperature: ${temperature}°C');
-      print('   Humidity: ${humidity}%');
 
       // Validate email address
       if (recipientEmail.isEmpty || !recipientEmail.contains('@')) {
         throw Exception('Invalid email address: $recipientEmail');
       }
 
-      // Use the updated EmailJS method
-      await sendAlertEmailWithEmailJS(
-        recipientEmail: recipientEmail,
-        rucheId: rucheId,
-        rucherId: rucherId,
-        temperature: temperature,
-        humidity: humidity,
-        weight: weight,
-      );
+      final now = DateTime.now();
+      final formattedDate = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} à ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
+      // Clean temperature data
+      String cleanTemperature = temperature.replaceAll(RegExp(r'[^0-9.-]'), '');
+      if (cleanTemperature.isEmpty) cleanTemperature = 'N/A';
+
+      final alertMessage = '''🚨 ALERTE RUCHE - Couvercle Ouvert
+
+Attention! Le couvercle de votre ruche est ouvert.
+
+Détails de la Ruche:
+• ID Ruche: $rucheId
+• ID Rucher: $rucherId  
+• Date/Heure: $formattedDate
+
+Données Actuelles:
+• 🌡️ Température: ${cleanTemperature}°C
+• 💧 Humidité: ${humidity}%
+• ⚖️ Poids: ${weight}kg
+• 🔓 Couvercle: OUVERT
+
+Action recommandée:
+Veuillez vérifier votre ruche dès que possible.''';
+
+      // FIXED: Use the main sendEmail method
+      // await sendEmail(
+      // toEmail: recipientEmail,
+      //subject: "🚨 ALERTE RUCHE - Couvercle Ouvert - $rucheId",
+      //message: alertMessage,
+      // );
+      await sendEmail(rucherId: '$rucheId',rucheId: '$rucheId', email: '$recipientEmail');
       print('✅ Email sent successfully to $recipientEmail');
     } catch (e) {
       print('❌ Error in _sendAlertEmail: $e');
       rethrow;
     }
   }
-
-bool _hasActiveAlert(RucheInfo ruche) {
+  bool _hasActiveAlert(RucheInfo ruche) {
     // Use the new hasActiveAlert getter from RucheInfo
     return ruche.hasActiveAlert;
   }
@@ -1044,16 +1053,16 @@ bool _hasActiveAlert(RucheInfo ruche) {
               );
             },
           );
-         // return Image.network(
-           // imageData,
-           // height: 200,
-            //fit: BoxFit.cover,
-            //errorBuilder: (context, error, stackTrace) {
-              //return Container(
-                //color: Colors.grey[300],
-                //child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
-              //);
-            //},
+          // return Image.network(
+          // imageData,
+          // height: 200,
+          //fit: BoxFit.cover,
+          //errorBuilder: (context, error, stackTrace) {
+          //return Container(
+          //color: Colors.grey[300],
+          //child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
+          //);
+          //},
           //);
         } else {
           // It's a local asset or file
