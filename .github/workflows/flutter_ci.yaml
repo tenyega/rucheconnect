@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: cirrusci/flutter:3.13.9
+      image: cirrusci/flutter:stable
 
     steps:
       - name: Checkout repository
