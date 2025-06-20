@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: cirrusci/flutter:stable
+      image: ghcr.io/cirruslabs/flutter:latest
 
     steps:
       - name: Checkout repository
