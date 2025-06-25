@@ -137,9 +137,9 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
       } else {
         // Handle case where apiculteur is not found
         if(email!= 'test@gmail.com'){
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apiculteur not found for this account')),
-        );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Apiculteur not found for this account')),
+          );
         }
         setState(() {
           isLoading = false;
@@ -394,7 +394,7 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                         'Registered',
+                      'Registered',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),

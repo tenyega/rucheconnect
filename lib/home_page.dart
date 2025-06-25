@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'view_profile.dart';
 import 'package:tp_flutter/ruchers.dart';
 import 'package:tp_flutter/ruche.dart' as ruche;// Import the new ruche.dart file
-
+import 'package:tp_flutter/contactUs.dart';
 // Define a UserRole enum for better type safety
 enum UserRole {
   admin,
@@ -996,6 +996,19 @@ class ProfileContent extends StatelessWidget {
                     );
                   },
                 ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.mail),
+                  title: const Text('Contact Us'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ContactPage()),
+                    );
+                  },
+                ),
+
+
               ],
             ),
           );
