@@ -359,6 +359,8 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Profile'),
+          backgroundColor: Colors.amber,
+          foregroundColor: Colors.black,
         ),
         body: const Center(
           child: CircularProgressIndicator(),

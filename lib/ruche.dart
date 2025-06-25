@@ -1042,6 +1042,8 @@ Veuillez vérifier votre ruche dès que possible.''';
     return Scaffold(
       appBar: AppBar(
         title: Text(_userRole == UserRole.admin ? 'Liste des ruches (Admin)' : 'Mes ruches'),
+        backgroundColor: Colors.amber,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

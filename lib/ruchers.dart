@@ -1559,6 +1559,10 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_userRole == UserRole.admin ? 'Listes des Ruchers (Admin)' : 'Mes Ruchers'),
+            backgroundColor: Colors.amber,
+            foregroundColor: Colors.black,
+
+
         actions: [
           // Add refresh button in the AppBar
           IconButton(
@@ -1626,7 +1630,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                   elevation: apiculteurAlerts > 0 ? 4 : 2,
-                  color: apiculteurAlerts > 0 ? Colors.red.shade50 : null,
+                  color: apiculteurAlerts > 0 ? Colors.white: null,
                   child: ExpansionTile(
                     title: Row(
                       children: [
@@ -1678,11 +1682,21 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                     },
                     children: apiculteur.ruchers.map((rucher) {
                       return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                        elevation: rucher.alertCount > 0 ? 3 : 1,
-                        color: rucher.alertCount > 0 ? Colors.red.shade50 : null,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
+                          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                      elevation: rucher.alertCount > 0 ? 3 : 1,
+                      child: Container(
+                      decoration: rucher.alertCount > 0
+                      ? const BoxDecoration(
+                      gradient: LinearGradient(
+                      colors: [Color(0xFFFFECB3), Color(0xFFFFF8E1)], // amber.shade100 & shade50
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      ),
+                      )
+                          : null,
+                      child: Padding(
+
+                      padding: const EdgeInsets.all(12.0),
                           child: Column( // Changed from Row to Column for better mobile layout
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1826,6 +1840,8 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                             ],
                           ),
                         ),
+                      ),
+
                       );
                     }).toList(),
                   ),
