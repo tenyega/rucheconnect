@@ -94,7 +94,10 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
       } else {
         // No authenticated user
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No authenticated user found')),
+          SnackBar(
+            content: const Text('No authenticated user found'),
+            backgroundColor: Colors.red,
+          ),
         );
         setState(() {
           isLoading = false;
@@ -103,7 +106,10 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
+          SnackBar(
+            content: Text('Error loading profile: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
         setState(() {
           isLoading = false;
@@ -138,7 +144,10 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
         // Handle case where apiculteur is not found
         if(email!= 'test@gmail.com'){
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Apiculteur not found for this account')),
+            SnackBar(
+              content: const Text('Apiculteur not found for this account'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
         setState(() {
@@ -177,13 +186,19 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apiculteur not found')),
+          SnackBar(
+            content: const Text('Apiculteur not found'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading apiculteur: $e')),
+          SnackBar(
+            content: Text('Error loading apiculteur: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -219,7 +234,10 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
     // Only allow editing for the current user
     if (!isCurrentUser) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You can only edit your own profile')),
+        SnackBar(
+          content: const Text('You can only edit your own profile'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -236,7 +254,10 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
     try {
       if (apiculteurId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No apiculteur ID found to update')),
+          SnackBar(
+            content: const Text('No apiculteur ID found to update'),
+            backgroundColor: Colors.red,
+          ),
         );
         return;
       }
@@ -260,11 +281,17 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully')),
+        SnackBar(
+          content: const Text('Profile updated successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating profile: $e')),
+        SnackBar(
+          content: Text('Error updating profile: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -274,16 +301,31 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Change Password'),
+        backgroundColor: Colors.grey.shade50,
+        title: Text(
+          'Change Password',
+          style: TextStyle(
+            color: Colors.amber.shade800,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: pwdController,
               obscureText: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'New Password',
-                border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: Colors.grey.shade700),
+                border: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.amber.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.amber.shade800),
+                ),
+                fillColor: Colors.grey.shade50,
+                filled: true,
               ),
             ),
           ],
@@ -291,9 +333,12 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
 
@@ -305,15 +350,25 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
                   });
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Password updated successfully')),
+                    SnackBar(
+                      content: const Text('Password updated successfully'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 }
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error updating password: $e')),
+                  SnackBar(
+                    content: Text('Error updating password: $e'),
+                    backgroundColor: Colors.red,
+                  ),
                 );
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Save'),
           ),
         ],
@@ -339,20 +394,30 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
         // Show success message only if it's not test email
         if (userData['email'] != 'test@gmail.com') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Apiculteur registered successfully')),
+            SnackBar(
+              content: const Text('Apiculteur registered successfully'),
+              backgroundColor: Colors.green,
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Test account registered successfully')),
+            SnackBar(
+              content: const Text('Test account registered successfully'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error registering apiculteur: $e')),
+        SnackBar(
+          content: Text('Error registering apiculteur: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -362,170 +427,234 @@ class _ViewProfilePageState extends State<ViewProfilePage> {
           backgroundColor: Colors.amber,
           foregroundColor: Colors.black,
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.amber.shade100,
+                Colors.amber.shade50,
+              ],
+            ),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
+            ),
+          ),
         ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isCurrentUser ? 'My Profile' : 'View Profile'),
+        title: Text(
+          isCurrentUser ? 'My Profile' : 'View Profile',
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.amber,
+        foregroundColor: Colors.black,
         actions: [
           if (isCurrentUser)
             IconButton(
-              icon: Icon(isEditing ? Icons.save : Icons.edit),
+              icon: Icon(
+                isEditing ? Icons.save : Icons.edit,
+                color: Colors.amber.shade800,
+              ),
               onPressed: toggleEditMode,
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Registration status badge
-              if (!isLoading)
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color:Colors.green,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Registered',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-
-              // Profile picture
-              Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.grey.shade200,
-                      child: const Icon(
-                        Icons.person,
-                        size: 80,
-                        color: Colors.grey,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.amber.shade100,
+              Colors.amber.shade50,
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Registration status badge
+                if (!isLoading)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Registered',
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
-                    if (isEditing && isCurrentUser)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
-                            shape: BoxShape.circle,
+                  ),
+
+                // Profile picture
+                Center(
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.amber.shade800,
+                            width: 3,
                           ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Photo upload feature not implemented')),
-                              );
-                            },
+                        ),
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.grey.shade50,
+                          child: Icon(
+                            Icons.person,
+                            size: 80,
+                            color: Colors.amber.shade800,
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Apiculteur information
-              ProfileField(
-                icon: Icons.person,
-                title: 'Login',
-                value: userData['login'],
-                controller: loginController,
-                isEditing: isEditing && isCurrentUser,
-              ),
-
-              const SizedBox(height: 16),
-              ProfileField(
-                icon: Icons.badge,
-                title: 'Nom',
-                value: userData['nom'],
-                controller: nomController,
-                isEditing: isEditing && isCurrentUser,
-              ),
-
-              const SizedBox(height: 16),
-              ProfileField(
-                icon: Icons.person_outline,
-                title: 'Prénom',
-                value: userData['prenom'],
-                controller: prenomController,
-                isEditing: isEditing && isCurrentUser,
-              ),
-
-              const SizedBox(height: 16),
-              ProfileField(
-                icon: Icons.email,
-                title: 'Email',
-                value: userData['email'],
-                controller: emailController,
-                isEditing: isEditing && isCurrentUser,
-              ),
-
-              const SizedBox(height: 16),
-              ProfileField(
-                icon: Icons.location_on,
-                title: 'Address',
-                value: userData['address'],
-                controller: addressController,
-                isEditing: isEditing && isCurrentUser,
-              ),
-
-              const SizedBox(height: 16),
-              ProfileField(
-                icon: Icons.password,
-                title: 'Password',
-                value: '••••••••', // Masked password
-                controller: pwdController,
-                isEditing: isEditing && isCurrentUser,
-                isPassword: true,
-              ),
-
-              const SizedBox(height: 16),
-              ProfileField(
-                icon: Icons.calendar_today,
-                title: 'Joined',
-                value: userData['joinedDate'],
-                isEditable: false, // Join date cannot be edited
-              ),
-
-              const SizedBox(height: 32),
-              if (!isEditing && isCurrentUser)
-                ElevatedButton(
-                  onPressed: _changePassword,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
+                      if (isEditing && isCurrentUser)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.black,
+                              ),
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Photo upload feature not implemented'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  child: const Text('Change Password'),
+                ),
+                const SizedBox(height: 24),
+
+                // Apiculteur information
+                ProfileField(
+                  icon: Icons.person,
+                  title: 'Login',
+                  value: userData['login'],
+                  controller: loginController,
+                  isEditing: isEditing && isCurrentUser,
                 ),
 
-              // Registration button for non-registered apiculteurs
-              if (!userData['isRegistered'] && !isCurrentUser)
-                ElevatedButton(
-                  onPressed: _registerApiculteur,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    backgroundColor: Colors.green,
-                  ),
-                  child: const Text('Register This Apiculteur'),
+                const SizedBox(height: 16),
+                ProfileField(
+                  icon: Icons.badge,
+                  title: 'Nom',
+                  value: userData['nom'],
+                  controller: nomController,
+                  isEditing: isEditing && isCurrentUser,
                 ),
-            ],
+
+                const SizedBox(height: 16),
+                ProfileField(
+                  icon: Icons.person_outline,
+                  title: 'Prénom',
+                  value: userData['prenom'],
+                  controller: prenomController,
+                  isEditing: isEditing && isCurrentUser,
+                ),
+
+                const SizedBox(height: 16),
+                ProfileField(
+                  icon: Icons.email,
+                  title: 'Email',
+                  value: userData['email'],
+                  controller: emailController,
+                  isEditing: isEditing && isCurrentUser,
+                ),
+
+                const SizedBox(height: 16),
+                ProfileField(
+                  icon: Icons.location_on,
+                  title: 'Address',
+                  value: userData['address'],
+                  controller: addressController,
+                  isEditing: isEditing && isCurrentUser,
+                ),
+
+                const SizedBox(height: 16),
+                ProfileField(
+                  icon: Icons.password,
+                  title: 'Password',
+                  value: '••••••••', // Masked password
+                  controller: pwdController,
+                  isEditing: isEditing && isCurrentUser,
+                  isPassword: true,
+                ),
+
+                const SizedBox(height: 16),
+                ProfileField(
+                  icon: Icons.calendar_today,
+                  title: 'Joined',
+                  value: userData['joinedDate'],
+                  isEditable: false, // Join date cannot be edited
+                ),
+
+                const SizedBox(height: 32),
+                if (!isEditing && isCurrentUser)
+                  ElevatedButton(
+                    onPressed: _changePassword,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Change Password',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+
+                // Registration button for non-registered apiculteurs
+                if (!userData['isRegistered'] && !isCurrentUser)
+                  ElevatedButton(
+                    onPressed: _registerApiculteur,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Register This Apiculteur',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -555,42 +684,73 @@ class ProfileField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.grey),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: Colors.amber.shade800,
+            size: 24,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              if (isEditing && isEditable)
-                TextField(
-                  controller: controller,
-                  obscureText: isPassword,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 4),
+                if (isEditing && isEditable)
+                  TextField(
+                    controller: controller,
+                    obscureText: isPassword,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.amber.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.amber.shade800, width: 2),
+                      ),
+                      fillColor: Colors.grey.shade50,
+                      filled: true,
+                    ),
+                  )
+                else
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                )
-              else
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

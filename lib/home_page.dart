@@ -6,6 +6,7 @@ import 'view_profile.dart';
 import 'package:tp_flutter/ruchers.dart';
 import 'package:tp_flutter/ruche.dart' as ruche;// Import the new ruche.dart file
 import 'package:tp_flutter/contactUs.dart';
+
 // Define a UserRole enum for better type safety
 enum UserRole {
   admin,
@@ -46,7 +47,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final String email = currentUser.email!;
 
       // Check if the user is an admin (email is test@gmail.com)
-      if (email == 'test@gmail.com') {
+      if (email == 'mdolma@ymail.com') {
         setState(() {
           _userRole = UserRole.admin;
           _isLoading = false;
@@ -100,6 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     }
   }
+
   void _onItemTapped(int index) {
     if (_userRole == UserRole.admin) {
       // For admin
@@ -156,39 +158,58 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+          ),
+        ),
       );
     }
 
     // If user role is unknown, show an error message
     if (_userRole == UserRole.unknown) {
       return Scaffold(
+        backgroundColor: Colors.grey.shade50,
         appBar: AppBar(
           title: const Text('Accès Refusé'),
+          backgroundColor: Colors.amber,
+          foregroundColor: Colors.black,
         ),
-        body: Column(
-          children: [
-
-            const Icon(Icons.error_outline, size: 80, color: Colors.red),
-            const SizedBox(height: 16),
-            const Text(
-              'Accès non autorisé',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Vous n\'avez pas les droits nécessaires pour accéder à cette application.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _logout,
-              child: const Text('Se déconnecter'),
-            ),
-
-
-          ],
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 80, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Accès non autorisé',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber.shade800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Vous n\'avez pas les droits nécessaires pour accéder à cette application.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _logout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                child: const Text('Se déconnecter'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -210,42 +231,42 @@ class _MyHomePageState extends State<MyHomePage> {
     ];
 
     final List<BottomNavigationBarItem> navItems = _userRole == UserRole.admin
-        ? const [
-      BottomNavigationBarItem(
+        ? [
+      const BottomNavigationBarItem(
         icon: Icon(Icons.people),
         label: 'Apiculteurs',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.hive),
         label: 'Rucher',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.bug_report),
         label: 'Ruche',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.person),
         label: 'Profile',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.logout),
         label: 'Logout',
       ),
     ]
-        : const [
-      BottomNavigationBarItem(
+        : [
+      const BottomNavigationBarItem(
         icon: Icon(Icons.hive),
         label: 'Rucher',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.bug_report),
         label: 'Ruche',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.person),
         label: 'Profile',
       ),
-      BottomNavigationBarItem(
+      const BottomNavigationBarItem(
         icon: Icon(Icons.logout),
         label: 'Logout',
       ),
@@ -253,8 +274,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // Display the appropriate UI based on user role
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
+        backgroundColor: Colors.amber,
+        foregroundColor: Colors.black,
         // Add the refresh button to the AppBar when admin is on the Apiculteurs page
         actions: _userRole == UserRole.admin && _currentIndex == 0
             ? [
@@ -275,6 +299,9 @@ class _MyHomePageState extends State<MyHomePage> {
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
         items: navItems,
+        backgroundColor: Colors.white,
+        selectedItemColor: Colors.amber.shade800,
+        unselectedItemColor: Colors.grey.shade600,
       ),
     );
   }
@@ -319,12 +346,20 @@ class ApiculteursContent extends StatefulWidget {
     apiculteursRef.get().then((snapshot) {
       if (snapshot.exists && snapshot.value != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Liste des apiculteurs actualisée')),
+          SnackBar(
+            content: const Text('Liste des apiculteurs actualisée'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }).catchError((error) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de l\'actualisation: $error')),
+        SnackBar(
+          content: Text('Erreur lors de l\'actualisation: $error'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     });
   }
@@ -341,6 +376,7 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     // Use the new hasActiveAlert getter from RucheInfo
     return ruche.hasActiveAlert;
   }
+
   int _getTotalActiveAlerts() {
     int totalAlerts = 0;
     for (var apiculteur in _apiculteurs) {
@@ -396,8 +432,6 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
                   rucheCount: ruches.length,
                   ruches: ruches,
                 ));
-
-
               }
             }
 
@@ -409,7 +443,6 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
               rucheCount: ruches.length,
               ruches: ruches,
             ));
-
           }
         }
 
@@ -431,7 +464,6 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     }
   }
 
-
   // Fixed refresh method to ensure message is shown
   Future<void> _refreshApiculteurs() async {
     setState(() {
@@ -445,13 +477,21 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
       // Show confirmation of refresh - Made sure this message appears
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Liste des apiculteurs actualisée')),
+          SnackBar(
+            content: const Text('Liste des apiculteurs actualisée'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'actualisation: ${e.toString()}')),
+          SnackBar(
+            content: Text('Erreur lors de l\'actualisation: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } finally {
@@ -499,7 +539,6 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     });
   }
 
-
   Future<void> _addApiculteur() async {
     // Show dialog to collect apiculteur data
     final TextEditingController loginController = TextEditingController();
@@ -512,46 +551,47 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ajouter un apiculteur'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: loginController,
-                decoration: const InputDecoration(labelText: 'Login'),
-              ),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: nomController,
-                decoration: const InputDecoration(labelText: 'Nom'),
-              ),
-              TextField(
-                controller: prenomController,
-                decoration: const InputDecoration(labelText: 'Prénom'),
-              ),
-              TextField(
-                controller: addressController,
-                decoration: const InputDecoration(labelText: 'Adresse'),
-              ),
-              TextField(
-                controller: pwdController,
-                decoration: const InputDecoration(labelText: 'Mot de passe'),
-                obscureText: true,
-              ),
-            ],
+        backgroundColor: Colors.white,
+        title: Text(
+          'Ajouter un apiculteur',
+          style: TextStyle(color: Colors.amber.shade800),
+        ),
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.amber.shade100, Colors.amber.shade50],
+            ),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStyledTextField(loginController, 'Login'),
+                const SizedBox(height: 12),
+                _buildStyledTextField(emailController, 'Email',
+                    keyboardType: TextInputType.emailAddress),
+                const SizedBox(height: 12),
+                _buildStyledTextField(nomController, 'Nom'),
+                const SizedBox(height: 12),
+                _buildStyledTextField(prenomController, 'Prénom'),
+                const SizedBox(height: 12),
+                _buildStyledTextField(addressController, 'Adresse'),
+                const SizedBox(height: 12),
+                _buildStyledTextField(pwdController, 'Mot de passe',
+                    obscureText: true),
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
             child: const Text('Annuler'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop({
                 'login': loginController.text,
@@ -562,6 +602,10 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
                 'pwd': pwdController.text,
               });
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Ajouter'),
           ),
         ],
@@ -584,14 +628,45 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apiculteur ajouté avec succès')),
+          SnackBar(
+            content: const Text('Apiculteur ajouté avec succès'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
+  }
+
+  Widget _buildStyledTextField(TextEditingController controller, String label,
+      {TextInputType? keyboardType, bool obscureText = false}) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.amber.shade800),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.amber.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.amber.shade800, width: 2),
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteApiculteur(String apiId) async {
@@ -599,15 +674,27 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
-        content: Text('Êtes-vous sûr de vouloir supprimer $apiId ?'),
+        backgroundColor: Colors.white,
+        title: Text(
+          'Confirmer la suppression',
+          style: TextStyle(color: Colors.amber.shade800),
+        ),
+        content: Text(
+          'Êtes-vous sûr de vouloir supprimer $apiId ?',
+          style: TextStyle(color: Colors.grey.shade700),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
             child: const Text('Annuler'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Supprimer'),
           ),
         ],
@@ -618,11 +705,19 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
       try {
         await _apiculteursRef.child(apiId).remove();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$apiId supprimé')),
+          SnackBar(
+            content: Text('$apiId supprimé'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -636,19 +731,33 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
     final newValue = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Modifier $field'),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(labelText: field),
-          obscureText: isPassword,
+        backgroundColor: Colors.white,
+        title: Text(
+          'Modifier $field',
+          style: TextStyle(color: Colors.amber.shade800),
+        ),
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.amber.shade100, Colors.amber.shade50],
+            ),
+          ),
+          child: _buildStyledTextField(controller, field, obscureText: isPassword),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700),
             child: const Text('Annuler'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Enregistrer'),
           ),
         ],
@@ -659,27 +768,45 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
       try {
         await _apiculteursRef.child('$apiId/$field').set(newValue);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$field mis à jour')),
+          SnackBar(
+            content: Text('$field mis à jour'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+        ),
+      );
     }
 
     return Stack(
       children: [
-        Scaffold(
-          body: Column(
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.amber.shade100, Colors.amber.shade50],
+            ),
+          ),
+          child: Column(
             children: [
               // Alert banner
               if (_getTotalActiveAlerts() > 0)
@@ -716,10 +843,16 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
                   itemCount: _apiculteurs.length + 1,
                   itemBuilder: (context, index) {
                     if (index == _apiculteurs.length) {
-                      return ListTile(
-                        leading: const Icon(Icons.add),
-                        title: const Text('Ajouter un apiculteur'),
-                        onTap: _addApiculteur,
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: ListTile(
+                          leading: Icon(Icons.add, color: Colors.amber.shade800),
+                          title: Text(
+                            'Ajouter un apiculteur',
+                            style: TextStyle(color: Colors.amber.shade800),
+                          ),
+                          onTap: _addApiculteur,
+                        ),
                       );
                     }
 
@@ -736,60 +869,75 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
         if (_isRefreshing)
           Container(
             color: Colors.black.withOpacity(0.3),
-            child: const Center(
-              child: CircularProgressIndicator(),
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
             ),
           ),
       ],
     );
   }
 
-
   Widget _buildApiculteurItem(Apiculteur apiculteur) {
-    return ExpansionTile(
-      title: Row(
-        children: [
-          Expanded(child: Text(apiculteur.id)),
-
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () => _deleteApiculteur(apiculteur.id),
-            tooltip: 'Supprimer',
-          ),
-        ],
-      ),
-      leading: const Icon(Icons.arrow_drop_down),
-      initiallyExpanded: apiculteur.isExpanded,
-      onExpansionChanged: (expanded) {
-        setState(() {
-          apiculteur.isExpanded = expanded;
-        });
-      },
-      children: [
-        // Apiculteur details
-        Padding(
-          padding: const EdgeInsets.only(left: 16.0, right: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildEditableRow('Login', apiculteur.login,
-                      () => _editApiculteurField(apiculteur.id, 'login', apiculteur.login)),
-              _buildEditableRow('Email', apiculteur.email,
-                      () => _editApiculteurField(apiculteur.id, 'email', apiculteur.email)),
-              _buildEditableRow('Nom', apiculteur.nom,
-                      () => _editApiculteurField(apiculteur.id, 'nom', apiculteur.nom)),
-              _buildEditableRow('Prénom', apiculteur.prenom,
-                      () => _editApiculteurField(apiculteur.id, 'prenom', apiculteur.prenom)),
-              _buildEditableRow('Adresse', apiculteur.address,
-                      () => _editApiculteurField(apiculteur.id, 'address', apiculteur.address)),
-              _buildEditableRow('Mot de passe', apiculteur.pwd,
-                      () => _editApiculteurField(apiculteur.id, 'pwd', apiculteur.pwd)),
-              const SizedBox(height: 16),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ],
+    return Card(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    child: ExpansionTile(
+    title: Row(
+    children: [
+    Expanded(
+    child: Text(
+    apiculteur.id,
+    style: TextStyle(
+    color: Colors.amber.shade800,
+    fontWeight: FontWeight.bold,
+    ),
+    ),
+    ),
+    IconButton(
+    icon: const Icon(Icons.delete),
+    color: Colors.red,
+    onPressed: () => _deleteApiculteur(apiculteur.id),
+    tooltip: 'Supprimer',
+    ),
+    ],
+    ),
+    leading: Icon(
+    Icons.arrow_drop_down,
+    color: Colors.amber.shade800,
+    ),
+    initiallyExpanded: apiculteur.isExpanded,
+    onExpansionChanged: (expanded) {
+    setState(() {
+    apiculteur.isExpanded = expanded;
+    });
+    },
+    children: [
+    // Apiculteur details
+    Padding(
+    padding: const EdgeInsets.only(left: 16.0, right: 16.0),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    _buildEditableRow('Login', apiculteur.login,
+    () => _editApiculteurField(apiculteur.id, 'login', apiculteur.login)),
+    _buildEditableRow('Email', apiculteur.email,
+    () => _editApiculteurField(apiculteur.id, 'email', apiculteur.email)),
+    _buildEditableRow('Nom', apiculteur.nom,
+    () => _editApiculteurField(apiculteur.id, 'nom', apiculteur.nom)),
+    _buildEditableRow('Prénom', apiculteur.prenom,
+    () => _editApiculteurField(apiculteur.id, 'prenom', apiculteur.prenom)),
+    _buildEditableRow('Adresse', apiculteur.address,
+    () => _editApiculteurField(apiculteur.id, 'address', apiculteur.address)),
+    _buildEditableRow('Mot de passe', apiculteur.pwd,
+    () => _editApiculteurField(apiculteur.id, 'pwd', apiculteur.pwd)),
+    const SizedBox(height: 16),
+    const SizedBox(height: 8),
+    ],
+    ),
+    ),
+    ],
+    )
     );
   }
 
@@ -803,14 +951,19 @@ class _ApiculteursContentState extends State<ApiculteursContent> {
         children: [
           Expanded(
             flex: 1,
-            child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text('$label:', style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.amber.shade800, // Header text color
+            )),
           ),
           Expanded(
             flex: 2,
-            child: Text(displayValue),
+            child: Text(displayValue, style: TextStyle(
+              color: Colors.grey.shade700, // Secondary text color
+            )),
           ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 20),
+            icon: Icon(Icons.edit, size: 20, color: Colors.amber.shade800), // Icon color
             onPressed: onEdit,
             tooltip: 'Modifier',
           ),
@@ -860,159 +1013,228 @@ class ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<dynamic, dynamic>?>(
-        future: _getCurrentApiculteur(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final apiculteur = snapshot.data;
-
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Show current apiculteur info at the top
-                if (apiculteur != null)
-                  Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.person,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "${apiculteur['prenom']} ${apiculteur['nom']}",
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  apiculteur['email'] ?? '',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                Text(
-                                  "ID: ${apiculteur['id']}",
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Profile menu items
-
-                ListTile(
-                  leading: const Icon(Icons.person),
-                  title: const Text('View Profile'),
-                  onTap: () {
-                    // Navigate to the ViewProfilePage
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ViewProfilePage(),
-                      ),
-                    );
-                  },
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.amber.shade100, // Gradient start
+            Colors.amber.shade50,  // Gradient end
+          ],
+        ),
+      ),
+      child: FutureBuilder<Map<dynamic, dynamic>?>(
+          future: _getCurrentApiculteur(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Loading indicator color
                 ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.password),
-                  title: const Text('Change Password'),
-                  onTap: () async {
-                    // Show password change dialog - using a simple implementation for demo
-                    final TextEditingController pwdController = TextEditingController();
+              );
+            }
 
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Change Password'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
+            final apiculteur = snapshot.data;
+
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Show current apiculteur info at the top
+                  if (apiculteur != null)
+                    Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      color: Colors.white, // Card background
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
                           children: [
-                            TextField(
-                              controller: pwdController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'New Password',
-                                border: OutlineInputBorder(),
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.amber.shade100, // Avatar background
+                              child: Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.amber.shade800, // Avatar icon color
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "${apiculteur['prenom']} ${apiculteur['nom']}",
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      color: Colors.amber.shade800, // Header text color
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    apiculteur['email'] ?? '',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Colors.grey.shade700, // Secondary text color
+                                    ),
+                                  ),
+                                  Text(
+                                    "ID: ${apiculteur['id']}",
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey.shade700, // Secondary text color
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              Navigator.pop(context);
-
-                              try {
-                                final apiculteurData = await _getCurrentApiculteur();
-                                if (apiculteurData != null && apiculteurData['id'] != null) {
-                                  // Update password in the database
-                                  await FirebaseDatabase.instance
-                                      .ref('apiculteurs/${apiculteurData['id']}')
-                                      .update({'pwd': pwdController.text});
-
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Password updated successfully')),
-                                    );
-                                  }
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error updating password: $e')),
-                                  );
-                                }
-                              }
-                            },
-                            child: const Text('Save'),
-                          ),
-                        ],
                       ),
-                    );
-                  },
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.mail),
-                  title: const Text('Contact Us'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ContactPage()),
-                    );
-                  },
-                ),
+                    ),
 
+                  // Profile menu items
+                  Card(
+                    color: Colors.white, // Card background
+                    elevation: 1,
+                    child: ListTile(
+                      leading: Icon(Icons.person, color: Colors.amber.shade800), // Icon color
+                      title: Text('View Profile', style: TextStyle(
+                        color: Colors.black, // Text color
+                        fontWeight: FontWeight.w500,
+                      )),
+                      onTap: () {
+                        // Navigate to the ViewProfilePage
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ViewProfilePage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
-              ],
-            ),
-          );
-        }
+                  Card(
+                    color: Colors.white, // Card background
+                    elevation: 1,
+                    child: ListTile(
+                      leading: Icon(Icons.password, color: Colors.amber.shade800), // Icon color
+                      title: Text('Change Password', style: TextStyle(
+                        color: Colors.black, // Text color
+                        fontWeight: FontWeight.w500,
+                      )),
+                      onTap: () async {
+                        // Show password change dialog - using a simple implementation for demo
+                        final TextEditingController pwdController = TextEditingController();
+
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: Colors.white, // Dialog background
+                            title: Text('Change Password', style: TextStyle(
+                              color: Colors.amber.shade800, // Header text color
+                              fontWeight: FontWeight.bold,
+                            )),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextField(
+                                  controller: pwdController,
+                                  obscureText: true,
+                                  style: TextStyle(color: Colors.black), // Input text color
+                                  decoration: InputDecoration(
+                                    labelText: 'New Password',
+                                    labelStyle: TextStyle(color: Colors.grey.shade700), // Label color
+                                    border: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.amber.shade800),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.amber.shade800, width: 2),
+                                    ),
+                                    fillColor: Colors.grey.shade50, // Fill color
+                                    filled: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text('Cancel', style: TextStyle(
+                                  color: Colors.grey.shade700, // Cancel button color
+                                )),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amber, // Submit button background
+                                  foregroundColor: Colors.black, // Submit button text
+                                ),
+                                onPressed: () async {
+                                  Navigator.pop(context);
+
+                                  try {
+                                    final apiculteurData = await _getCurrentApiculteur();
+                                    if (apiculteurData != null && apiculteurData['id'] != null) {
+                                      // Update password in the database
+                                      await FirebaseDatabase.instance
+                                          .ref('apiculteurs/${apiculteurData['id']}')
+                                          .update({'pwd': pwdController.text});
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Password updated successfully'),
+                                            backgroundColor: Colors.green, // Success message background
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error updating password: $e'),
+                                          backgroundColor: Colors.red, // Error message background
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                child: const Text('Save'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Card(
+                    color: Colors.white, // Card background
+                    elevation: 1,
+                    child: ListTile(
+                      leading: Icon(Icons.mail, color: Colors.amber.shade800), // Icon color
+                      title: Text('Contact Us', style: TextStyle(
+                        color: Colors.black, // Text color
+                        fontWeight: FontWeight.w500,
+                      )),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ContactPage()),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+      ),
     );
   }
 }
@@ -1023,8 +1245,36 @@ class LogoutContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Logging out...'),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.amber.shade100, // Gradient start
+            Colors.amber.shade50,  // Gradient end
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Loading indicator color
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Logging out...',
+              style: TextStyle(
+                color: Colors.amber.shade800, // Text color
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

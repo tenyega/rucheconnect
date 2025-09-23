@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -8,8 +6,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_email_js/flutter_email_js.dart';
-
-
 
 // Data model for individual ruche data points
 class RucheDataPoint {
@@ -133,7 +129,6 @@ class RucheInfo {
   RucheDataPoint? getLatestDataPoint() {
     if (dataPoints.isEmpty) return null;
 
-
     // Sort entries by timestamp, then by key as tie-breaker
     var sortedEntries = dataPoints.entries.toList();
     sortedEntries.sort((a, b) {
@@ -159,8 +154,6 @@ class RucheInfo {
 
   String? getLatestDataPointKey() {
     if (dataPoints.isEmpty) return null;
-
-
 
     // Sort entries by timestamp, then by key as tie-breaker
     var sortedEntries = dataPoints.entries.toList();
@@ -194,12 +187,14 @@ class RucheInfo {
     return (latestData.alert == 1);
   }
 }
+
 // User role enum
 enum UserRole {
   admin,
   apiculteur,
   unknown
 }
+
 class AlertRecord {
   final DateTime sentAt;
   final String dataPointKey;
@@ -211,6 +206,7 @@ class AlertRecord {
     required this.alertKey,
   });
 }
+
 // Main widget for the rucher & ruche view
 class RucherRucheViewState extends StatefulWidget {
   const RucherRucheViewState({Key? key}) : super(key: key);
@@ -225,13 +221,50 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
   bool _isLoading = true;
   UserRole _userRole = UserRole.unknown;
   String? _currentUserEmail;
-  //Set<String> _alertsSent = {}; // Track which alerts have been sent
-  Map<String, AlertRecord> _alertsSent = {}; // Changed from Set<String> to Map<String, AlertRecord>
+  Map<String, AlertRecord> _alertsSent = {};
 
   @override
   void initState() {
     super.initState();
     _checkUserRole();
+  }
+  String extractBase64Data(String base64String) {
+    // Remove the data URL prefix (data:image/jpeg;base64,)
+    if (base64String.contains(',')) {
+      return base64String.split(',')[1];
+    }
+    return base64String;
+  }
+  Widget buildBase64Image(String base64String, {double? width, double? height}) {
+    try {
+      // Extract pure base64 data
+      String cleanBase64 = extractBase64Data(base64String);
+
+      // Decode base64 to bytes
+      Uint8List bytes = base64Decode(cleanBase64);
+
+      return Image.memory(
+        bytes,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: width,
+            height: height,
+            color: Colors.grey.shade50,
+            child: Icon(Icons.error, color: Colors.red),
+          );
+        },
+      );
+    } catch (e) {
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.grey.shade50,
+        child: Icon(Icons.image_not_supported, color: Colors.grey.shade700),
+      );
+    }
   }
 
   bool _shouldSendAlert({
@@ -371,12 +404,14 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: ${e.toString()}')),
+        SnackBar(
+          content: Text('Error loading data: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
-  // NEw email method
   void _sendAlertEmailAsync({
     required String recipientEmail,
     required String apiculteurName,
@@ -385,11 +420,9 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     required RucheDataPoint latestDataPoint,
   }) {
     // Static flag to prevent overlapping sends - make it instance variable instead
-     bool _isCurrentlySending = false;
+    bool _isCurrentlySending = false;
 
-
-
-     _isCurrentlySending = true;
+    _isCurrentlySending = true;
 
     // Send email asynchronously
     Future.microtask(() async {
@@ -424,8 +457,6 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     });
   }
 
-  // Add this method to your _RucherRucheViewState class:
-
   Future<void> _loadCurrentApiculteur(String userEmail) async {
     try {
       // Store the current user email for filtering
@@ -444,13 +475,13 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: ${e.toString()}')),
+        SnackBar(
+          content: Text('Error loading data: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
-
-
-
 
   void _loadApiculteursFromSnapshot(DataSnapshot snapshot) {
     setState(() {
@@ -499,12 +530,6 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
                         } catch (_) {}
                       }
                     });
-
-                    // ✅ REMOVED: Don't check alerts during data loading
-                    // This was causing emails to be sent on every data refresh
-                    // Alert emails should only be sent when:
-                    // 1. User manually activates alerts AND lid is open (handled in _toggleAlertStatus)
-                    // 2. OR when lid opens while alerts are already active (you might want to add this logic separately)
 
                     ruchesList.add(RucheInfo(
                       id: rucheKey.toString(),
@@ -686,7 +711,7 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
           content: Text(newAlertStatus
               ? 'Alertes activées pour ${ruche.id}'
               : 'Alertes désactivées pour ${ruche.id}'),
-          backgroundColor: newAlertStatus ? Colors.green : Colors.grey,
+          backgroundColor: newAlertStatus ? Colors.green : Colors.grey.shade700,
         ),
       );
 
@@ -704,14 +729,12 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     }
   }
 
-
-
   // Replace your sendEmail method with this corrected version:
   Future<void> sendEmail({
     required String rucherId,
     required String rucheId,
     required String email,
-  })  async {
+  }) async {
     const serviceId = 'service_8yivchs';
     const templateId = 'template_dn9kieg';
     const userId = 'FTgZiqrq5bPlnYvU4'; // your EmailJS public key
@@ -743,8 +766,6 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
       print('❌ Response body: ${response.body}');
     }
   }
-
-
 
   // Updated method to replace in your existing code
   Future<void> _sendAlertEmail({
@@ -791,19 +812,14 @@ Données Actuelles:
 Action recommandée:
 Veuillez vérifier votre ruche dès que possible.''';
 
-      // FIXED: Use the main sendEmail method
-      // await sendEmail(
-      // toEmail: recipientEmail,
-      //subject: "🚨 ALERTE RUCHE - Couvercle Ouvert - $rucheId",
-      //message: alertMessage,
-      // );
-      await sendEmail(rucherId: '$rucheId',rucheId: '$rucheId', email: '$recipientEmail');
+      await sendEmail(rucherId: '$rucheId', rucheId: '$rucheId', email: '$recipientEmail');
       print('✅ Email sent successfully to $recipientEmail');
     } catch (e) {
       print('❌ Error in _sendAlertEmail: $e');
       rethrow;
     }
   }
+
   bool _hasActiveAlert(RucheInfo ruche) {
     // Use the new hasActiveAlert getter from RucheInfo
     return ruche.hasActiveAlert;
@@ -813,7 +829,6 @@ Veuillez vérifier votre ruche dès que possible.''';
   RucheDataPoint? getLatestDataPoint(RucheInfo ruche) {
     return ruche.getLatestDataPoint();
   }
-
 
   Future<void> _deleteRuche(RucheInfo ruche) async {
     final bool? confirmed = await showDialog<bool>(
@@ -829,14 +844,13 @@ Veuillez vérifier votre ruche dès que possible.''';
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
             ),
           ],
         );
       },
     );
-
     if (confirmed == true) {
       final rucherId = ruche.rucherId;
       final apiculteurId = ruche.apiculteurId;
@@ -845,519 +859,624 @@ Veuillez vérifier votre ruche dès que possible.''';
         try {
           await _apiculteursRef.child('$apiculteurId/$rucherId/${ruche.id}').remove();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ruche deleted successfully')),
+            SnackBar(
+              content: Text('Ruche deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
           );
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting ruche: ${e.toString()}')),
+            SnackBar(
+              content: Text('Error deleting ruche: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
     }
-  }
-  String extractBase64Data(String base64String) {
-    // Remove the data URL prefix (data:image/jpeg;base64,)
-    if (base64String.contains(',')) {
-      return base64String.split(',')[1];
-    }
-    return base64String;
-  }
-  Widget buildBase64Image(String base64String, {double? width, double? height}) {
-    try {
-      // Extract pure base64 data
-      String cleanBase64 = extractBase64Data(base64String);
 
-      // Decode base64 to bytes
-      Uint8List bytes = base64Decode(cleanBase64);
 
-      return Image.memory(
-        bytes,
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            width: width,
-            height: height,
-            color: Colors.grey[300],
-            child: Icon(Icons.error, color: Colors.red),
+
+
+  }
+// Add a new ruche to a rucher
+    Future<void> _addRuche(RucherWithRuches rucher) async {
+      final TextEditingController descController = TextEditingController();
+
+      final bool? result = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              'Add New Ruche',
+              style: TextStyle(
+                color: Colors.amber.shade800,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: TextField(
+              controller: descController,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                labelStyle: TextStyle(color: Colors.amber.shade800),
+                hintText: 'Enter ruche description...',
+                hintStyle: TextStyle(color: Colors.grey.shade700),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.amber),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.amber.shade800, width: 2),
+                ),
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Cancel', style: TextStyle(color: Colors.grey.shade700)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                ),
+                child: Text('Add'),
+              ),
+            ],
           );
         },
       );
-    } catch (e) {
-      return Container(
-        width: width,
-        height: height,
-        color: Colors.grey[300],
-        child: Icon(Icons.image_not_supported),
-      );
-    }
-  }
 
-  // Add a new ruche to a rucher
-  Future<void> _addRuche(RucherWithRuches rucher) async {
-    final TextEditingController descController = TextEditingController();
+      if (result == true) {
+        final apiculteurId = rucher.ruches.isNotEmpty ? rucher.ruches.first.apiculteurId : null;
 
-    final bool? result = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add New Ruche'),
-          content: TextField(
-            controller: descController,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              hintText: 'Enter ruche description...',
+        if (apiculteurId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: Cannot determine apiculteur for this rucher'),
+              backgroundColor: Colors.red,
             ),
-            maxLines: 3,
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result == true) {
-      final apiculteurId = rucher.ruches.isNotEmpty ? rucher.ruches.first.apiculteurId : null;
-
-      if (apiculteurId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: Cannot determine apiculteur for this rucher')),
-        );
-        return;
-      }
-
-      try {
-        // Generate new ruche ID
-        final existingRucheCount = rucher.ruches.length;
-        final newRucheId = 'ruche_00${existingRucheCount + 1}';
-
-        // Create ruche with description and default alert status
-        final rucheData = {
-          'desc': descController.text.trim()
-        };
-
-        await _apiculteursRef.child('$apiculteurId/${rucher.id}/$newRucheId').set(rucheData);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ruche added successfully')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding ruche: ${e.toString()}')),
-        );
-      }
-    }
-  }
-
-  Widget _buildRucherImage(String imageData) {
-    try {
-      // Check if it's a Base64 string (typically starts with data: or just the base64 part)
-      if (imageData.startsWith('data:image/') || _isBase64String(imageData)) {
-        return buildBase64Image(imageData, height: 200);
-      } else {
-        // It's a filename/URL - handle accordingly
-        if (imageData.startsWith('img') || imageData.startsWith('img')) {
-          // It's a URL
-
-          return Image.asset('assets/$imageData',
-            height: 50,
-            width: 50,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[300],
-                child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
-              );
-            },
           );
-          // return Image.network(
-          // imageData,
-          // height: 200,
-          //fit: BoxFit.cover,
-          //errorBuilder: (context, error, stackTrace) {
-          //return Container(
-          //color: Colors.grey[300],
-          //child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
-          //);
-          //},
-          //);
-        } else {
-          // It's a local asset or file
-          return Image.asset(
-            imageData,
-            height: 50,
-            width: 50,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[300],
-                child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
-              );
-            },
+          return;
+        }
+
+        try {
+          // Generate new ruche ID
+          final existingRucheCount = rucher.ruches.length;
+          final newRucheId = 'ruche_00${existingRucheCount + 1}';
+
+          // Create ruche with description and default alert status
+          final rucheData = {
+            'desc': descController.text.trim()
+          };
+
+          await _apiculteursRef.child('$apiculteurId/${rucher.id}/$newRucheId').set(rucheData);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ruche added successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error adding ruche: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
-    } catch (e) {
-      // Fallback for any errors
-      return Container(
-        color: Colors.grey[300],
-        child: Icon(Icons.broken_image, size: 50, color: Colors.grey[600]),
-      );
-    }
-  }
-
-  bool _isBase64String(String str) {
-    try {
-      // Basic check for Base64 pattern
-      RegExp base64RegExp = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
-      return base64RegExp.hasMatch(str) && str.length % 4 == 0;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  bool _canUserModify(ApiculteurWithRuchers apiculteur) {
-    return _userRole == UserRole.admin ||
-        (_userRole == UserRole.apiculteur && apiculteur.email == _currentUserEmail);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_userRole == UserRole.unknown && !_isLoading) {
-      return const Center(
-        child: Text('Accès non autorisé'),
-      );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_userRole == UserRole.admin ? 'Liste des ruches (Admin)' : 'Mes ruches'),
-        backgroundColor: Colors.amber,
-        foregroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Rafraîchir',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Liste des ruches actualisés......')),
-              );
-              if (!mounted) return;
-              setState(() {
-                _isLoading = true;
-              });
-              // Conditional loading based on user role
-              if (_userRole == UserRole.admin) {
-                _loadApiculteurs(); // Load all apiculteurs for admin
-              } else {
-                _loadCurrentApiculteur(FirebaseAuth.instance.currentUser?.email ?? ''); // Load only current user's data
-              }
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          // Alert banner
-          if (_getTotalActiveAlerts() > 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200, width:2),
+    Widget _buildRucherImage(String imageData) {
+      try {
+        // Check if it's a Base64 string (typically starts with data: or just the base64 part)
+        if (imageData.startsWith('data:image/') || _isBase64String(imageData)) {
+          return buildBase64Image(imageData, height: 200);
+        } else {
+          // It's a filename/URL - handle accordingly
+          if (imageData.startsWith('img') || imageData.startsWith('img')) {
+            // It's a URL
+
+            return Image.asset('assets/$imageData',
+              height: 50,
+              width: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey.shade50,
+                  child: Icon(Icons.broken_image, size: 50, color: Colors.grey.shade700),
+                );
+              },
+            );
+          } else {
+            // It's a local asset or file
+            return Image.asset(
+              imageData,
+              height: 50,
+              width: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey.shade50,
+                  child: Icon(Icons.broken_image, size: 50, color: Colors.grey.shade700),
+                );
+              },
+            );
+          }
+        }
+      } catch (e) {
+        // Fallback for any errors
+        return Container(
+          color: Colors.grey.shade50,
+          child: Icon(Icons.broken_image, size: 50, color: Colors.grey.shade700),
+        );
+      }
+    }
+
+    bool _isBase64String(String str) {
+      try {
+        // Basic check for Base64 pattern
+        RegExp base64RegExp = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
+        return base64RegExp.hasMatch(str) && str.length % 4 == 0;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    bool _canUserModify(ApiculteurWithRuchers apiculteur) {
+      return _userRole == UserRole.admin ||
+          (_userRole == UserRole.apiculteur && apiculteur.email == _currentUserEmail);
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      if (_userRole == UserRole.unknown && !_isLoading) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: Text(
+              'Accès non autorisé',
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontSize: 16,
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning_amber, color: Colors.red, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '⚠️ ${_getTotalActiveAlerts()} ruche(s) en alerte - Vol de miel détecté!',
+            ),
+          ),
+        );
+      }
+
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: Text(
+            _userRole == UserRole.admin ? 'Liste des ruches (Admin)' : 'Mes ruches',
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: Colors.amber,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.black),
+              tooltip: 'Rafraîchir',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: Colors.amber.shade100,
+                    content: Text(
+                      'Liste des ruches actualisée...',
                       style: TextStyle(
-                        color: Colors.red.shade800,
+                        color: Colors.black, // ✅ Text color set manually here
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
                       ),
                     ),
                   ),
-                ],
-              ),
+                );
+                if (!mounted) return;
+                setState(() {
+                  _isLoading = true;
+                });
+                // Conditional loading based on user role
+                if (_userRole == UserRole.admin) {
+                  _loadApiculteurs(); // Load all apiculteurs for admin
+                } else {
+                  _loadCurrentApiculteur(FirebaseAuth.instance.currentUser?.email ?? ''); // Load only current user's data
+                }
+              },
             ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _apiculteurs.length,
-              itemBuilder: (context, index) {
-                final apiculteur = _apiculteurs[index];
-                final canModify = _canUserModify(apiculteur);
-
-                return Card(
-                  margin: const EdgeInsets.all(8.0),
-                  child: ExpansionTile(
-                    title: Text('${apiculteur.prenom} ${apiculteur.nom}'),
-                    subtitle: Text('${apiculteur.ruchers.length} ruchers${_userRole == UserRole.admin ? ' • ${apiculteur.email}' : ''}'), // Only show email for admin
+          ],
+        ),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.amber.shade100,
+                Colors.amber.shade50,
+              ],
+            ),
+          ),
+          child: _isLoading
+              ? Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              backgroundColor: Colors.amber.shade200,
+            ),
+          )
+              : Column(
+            children: [
+              // Alert banner
+              if (_getTotalActiveAlerts() > 0)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200, width: 2),
+                  ),
+                  child: Row(
                     children: [
-                      ...apiculteur.ruchers.map((rucher) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                          child: Column(
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    height: 150,
-                                    width: 100, // Fixed width instead of double.infinity
-                                    child: rucher.picUrl != null && rucher.picUrl!.isNotEmpty
-                                        ? _buildRucherImage(rucher.picUrl!)
-                                        : Container(
-                                      color: Colors.grey[300],
-                                      child: Icon(Icons.image, size: 50, color: Colors.grey[600]),
-                                    ),
-                                  ),
+                      Icon(Icons.warning_amber, color: Colors.red, size: 10),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '⚠️ ${_getTotalActiveAlerts()} ruche(s) en alerte - Vol de miel détecté!',
+                          style: TextStyle(
+                            color: Colors.red.shade800,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _apiculteurs.length,
+                  itemBuilder: (context, index) {
+                    final apiculteur = _apiculteurs[index];
+                    final canModify = _canUserModify(apiculteur);
 
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
+                    return Card(
+                      margin: const EdgeInsets.all(8.0),
+                      color: Colors.white,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ExpansionTile(
+                        title: Text(
+                          '${apiculteur.prenom} ${apiculteur.nom}',
+                          style: TextStyle(
+                            color: Colors.amber.shade800,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${apiculteur.ruchers.length} ruchers${_userRole == UserRole.admin ? ' • ${apiculteur.email}' : ''}',
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                        iconColor: Colors.amber.shade800,
+                        children: [
+                          ...apiculteur.ruchers.map((rucher) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  children: [
+                                    Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          rucher.id,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        Container(
+                                          height: 150,
+                                          width: 100,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.amber.shade200),
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: rucher.picUrl != null && rucher.picUrl!.isNotEmpty
+                                                ? _buildRucherImage(rucher.picUrl!)
+                                                : Container(
+                                              color: Colors.grey.shade50,
+                                              child: Icon(Icons.image, size: 50, color: Colors.grey.shade700),
+                                            ),
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text('📍 ${rucher.address}'),
-                                        Text('📝 ${rucher.description}'),
-                                        Text('🐝 Ruches: ${rucher.ruches.length}'),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                rucher.id,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: Colors.amber.shade800,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '📍 ${rucher.address}',
+                                                style: TextStyle(color: Colors.grey.shade700),
+                                              ),
+                                              Text(
+                                                '📝 ${rucher.description}',
+                                                style: TextStyle(color: Colors.grey.shade700),
+                                              ),
+                                              Text(
+                                                '🐝 Ruches: ${rucher.ruches.length}',
+                                                style: TextStyle(color: Colors.grey.shade700),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                  ),
-
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              // Add Ruche button with + sign - Only show if user can modify
-                              if (canModify)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed: () => _addRuche(rucher),
-                                          icon: const Icon(Icons.add, color: Colors.green),
-                                          label: const Text('Add Ruche'),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.green,
-                                            side: const BorderSide(color: Colors.green),
-                                          ),
+                                    const SizedBox(height: 8),
+                                    // Add Ruche button with + sign - Only show if user can modify
+                                    if (canModify)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed: () => _addRuche(rucher),
+                                                icon: Icon(Icons.add, color: Colors.black),
+                                                label: Text('Add Ruche', style: TextStyle(color: Colors.black)),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.amber,
+                                                  foregroundColor: Colors.black,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ...rucher.ruches.map((ruche) {
-                                final latestData = getLatestDataPoint(ruche);
-                                final hasAlert = _hasActiveAlert(ruche);
-                                return Card(
-                                  // More prominent alert coloring
-                                  color: hasAlert ? Colors.red.shade100 : null,
-                                  elevation: hasAlert ? 4 : 1,
-                                  child: Container(
-                                    decoration: hasAlert ? BoxDecoration(
-                                      border: Border.all(color: Colors.red, width: 2),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ) : null,
-                                    child: ListTile(
-                                      // Enhanced leading icon with animation potential
-                                      leading: Stack(
-                                        children: [
-                                          Icon(
-                                            hasAlert ? Icons.warning : Icons.hive,
-                                            color: hasAlert ? Colors.red : Colors.amber,
-                                            size: 10,
-                                          ),
-                                          if (hasAlert)
-                                            Positioned(
-                                              right: 0,
-                                              top: 0,
-                                              child: Container(
-                                                width: 10,
-                                                height: 10,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red,
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(color: Colors.white, width: 1),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      title: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              ruche.id,
-                                              style: TextStyle(
-                                                fontWeight: hasAlert ? FontWeight.bold : FontWeight.normal,
-                                                color: hasAlert ? Colors.red.shade800 : null,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-
-                                        ],
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('📊 Données: ${ruche.dataPoints.length}'),
-                                          if (latestData != null) ...[
-                                            Row(
+                                    ...rucher.ruches.map((ruche) {
+                                      final latestData = getLatestDataPoint(ruche);
+                                      final hasAlert = _hasActiveAlert(ruche);
+                                      return Card(
+                                        // More prominent alert coloring
+                                        color: hasAlert ? Colors.red.shade100 : Colors.white,
+                                        elevation: hasAlert ? 4 : 1,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Container(
+                                          decoration: hasAlert
+                                              ? BoxDecoration(
+                                            border: Border.all(color: Colors.red, width: 2),
+                                            borderRadius: BorderRadius.circular(8),
+                                          )
+                                              : null,
+                                          child: ListTile(
+                                            // Enhanced leading icon with animation potential
+                                            leading: Stack(
                                               children: [
-                                                Flexible(
-                                                  child: Text('🌡️ ${latestData.temperature}°C'),
+                                                Icon(
+                                                  hasAlert ? Icons.warning : Icons.hive,
+                                                  color: hasAlert ? Colors.red : Colors.amber.shade800,
+                                                  size: 30,
                                                 ),
-                                                const SizedBox(width: 16),
-                                                Flexible(
-                                                  child: Text('💧 ${latestData.humidity}%'),
-                                                ),
+                                                if (hasAlert)
+                                                  Positioned(
+                                                    right: 0,
+                                                    top: 0,
+                                                    child: Container(
+                                                      width: 10,
+                                                      height: 10,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red,
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(color: Colors.white, width: 1),
+                                                      ),
+                                                    ),
+                                                  ),
                                               ],
                                             ),
-                                            Row(
+                                            title: Row(
                                               children: [
-                                                Text('Couvercle: '),
-                                                Flexible(
+                                                Expanded(
                                                   child: Text(
-                                                    latestData.couvercle == 1 ? "Ouvert" : "Fermé",
+                                                    ruche.id,
                                                     style: TextStyle(
-                                                      color: latestData.couvercle == 1 ? Colors.orange : Colors.green,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight: hasAlert ? FontWeight.bold : FontWeight.normal,
+                                                      color: hasAlert ? Colors.red.shade800 : Colors.amber.shade800,
                                                     ),
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                               ],
                                             ),
-                                            if (hasAlert)
-                                              Container(
-                                                margin: const EdgeInsets.only(top: 4),
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red.shade50,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: Colors.red.shade200),
+                                            subtitle: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '📊 Données: ${ruche.dataPoints.length}',
+                                                  style: TextStyle(color: Colors.grey.shade700),
                                                 ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                if (latestData != null) ...[
+                                                  Row(
+                                                    children: [
+                                                      Flexible(
+                                                        child: Text(
+                                                          '🌡️ ${latestData.temperature}°C',
+                                                          style: TextStyle(
+                                                            fontSize: 12, // or whatever your base size is
+                                                            color: Colors.grey.shade700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 10),
+                                                      Flexible(
+                                                        child: Text(
+                                                          '💧 ${latestData.humidity}%',
+                                                          style: TextStyle(color: Colors.grey.shade700),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        'Couvercle:',
+                                                        style: TextStyle(
+                                                          color: Colors.grey.shade700,
+                                                          fontSize: 10, // ✅ now it's correctly placed
+                                                        ),
+                                                      ),
+
+                                                      Flexible(
+                                                        child: Text(
+                                                          latestData.couvercle == 1 ? "Ouvert" : "Fermé",
+                                                          style: TextStyle(
+                                                            color: latestData.couvercle == 1 ? Colors.red : Colors.green,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 10,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  if (hasAlert)
+                                                    Container(
+                                                      margin: const EdgeInsets.only(top: 4),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red.shade50,
+                                                        borderRadius: BorderRadius.circular(2),
+                                                        border: Border.all(color: Colors.red.shade200),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.error, color: Colors.red, size: 12),
+                                                          const SizedBox(width: 4),
+                                                          Flexible( // ✅ prevent overflow
+                                                            child: Text(
+                                                              'Vol détecté!',
+                                                              style: TextStyle(
+                                                                color: Colors.red.shade800,
+                                                                fontSize: 10,
+                                                                fontWeight: FontWeight.normal,
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                              softWrap: false,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )
+
+                                                ],
+                                                const SizedBox(height: 4),
+                                                Row(
                                                   children: [
-                                                    Icon(Icons.error, color: Colors.red, size: 16),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      'Vol de miel détecté!',
-                                                      style: TextStyle(
-                                                        color: Colors.red.shade800,
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.normal,
+                                                    Icon(
+                                                      Icons.bar_chart,
+                                                      size: 10,
+                                                      color: hasAlert ? Colors.red : Colors.green,
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'Voir détails',
+                                                        style: TextStyle(
+                                                          color: hasAlert ? Colors.red : Colors.green,
+                                                          fontSize: 10,
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                              )
-
-                                          ],
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.bar_chart,
-                                                size: 16,
-                                                color: hasAlert ? Colors.red : Colors.green,
+                                              ],
+                                            ),
+                                            trailing: canModify
+                                                ? SizedBox(
+                                              width: 96, // Fixed width to prevent overflow
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(
+                                                      ruche.alertActive
+                                                          ? Icons.notifications // Bell (alert enabled)
+                                                          : Icons.notifications_off, // Bell with slash (alert disabled)
+                                                      color: ruche.alertActive ? Colors.red : Colors.green,
+                                                      size: 24,
+                                                    ),
+                                                    onPressed: () => _toggleAlertStatus(ruche),
+                                                    tooltip: ruche.alertActive
+                                                        ? 'Désactiver les alertes'
+                                                        : 'Activer les alertes',
+                                                  ),
+                                                  IconButton(
+                                                    icon: Icon(Icons.delete, color: Colors.red),
+                                                    onPressed: () => _deleteRuche(ruche),
+                                                    tooltip: 'Delete Ruche',
+                                                  ),
+                                                ],
                                               ),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: Text(
-                                                  'Voir détails',
-                                                  style: TextStyle(
-                                                    color: hasAlert ? Colors.red : Colors.green,
-                                                    fontSize: 12,
+                                            )
+                                                : null,
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => RucheDetailPage(
+                                                    apiculteurId: apiculteur.id,
+                                                    rucherId: rucher.id,
+                                                    rucheId: ruche.id,
                                                   ),
                                                 ),
-                                              ),
-                                            ],
+                                              );
+                                            },
                                           ),
-                                        ],
-                                      ),
-                                      trailing: canModify
-                                          ? SizedBox(
-                                        width: 96, // Fixed width to prevent overflow
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: Icon(
-                                                ruche.alertActive
-                                                    ? Icons.notifications     // Bell (alert enabled)
-                                                    : Icons.notifications_off, // Bell with slash (alert disabled)
-                                                color: ruche.alertActive ? Colors.red : Colors.green,
-                                                size: 24,
-                                              ),
-                                              onPressed: () => _toggleAlertStatus(ruche),
-                                              tooltip: ruche.alertActive
-                                                  ? 'Désactiver les alertes'
-                                                  : 'Activer les alertes',
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete),
-                                              onPressed: () => _deleteRuche(ruche),
-                                              tooltip: 'Delete Ruche',
-                                            ),
-                                          ],
                                         ),
-                                      )
-                                          : null,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => RucheDetailPage(
-                                              apiculteurId: apiculteur.id,
-                                              rucherId: rucher.id,
-                                              rucheId: ruche.id,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  ),
-                );
-              },
-            ),
+                                      );
+                                    }).toList(),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-
-  }
+        ),
+      );
+    }
 }

@@ -1557,12 +1557,13 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
       );
     }
     return Scaffold(
+      backgroundColor: Colors.amber.shade50, // ✅ This sets the page background
       appBar: AppBar(
-        title: Text(_userRole == UserRole.admin ? 'Listes des Ruchers (Admin)' : 'Mes Ruchers'),
-            backgroundColor: Colors.amber,
-            foregroundColor: Colors.black,
-
-
+        title: Text(
+            _userRole == UserRole.admin ? 'Listes des Ruchers (Admin)' : 'Mes Ruchers'
+        ),
+        backgroundColor: Colors.amber.shade50, // optional – same as scaffold
+        foregroundColor: Colors.black,
         actions: [
           // Add refresh button in the AppBar
           IconButton(
@@ -1593,7 +1594,7 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
               padding: const EdgeInsets.all(16),
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.red.shade200, width:2),
               ),
@@ -1686,9 +1687,12 @@ class _RucherApiculteurViewState extends State<RucherApiculteurView> {
                       elevation: rucher.alertCount > 0 ? 3 : 1,
                       child: Container(
                       decoration: rucher.alertCount > 0
-                      ? const BoxDecoration(
+                      ?  BoxDecoration(
                       gradient: LinearGradient(
-                      colors: [Color(0xFFFFECB3), Color(0xFFFFF8E1)], // amber.shade100 & shade50
+                        colors: [
+                          Colors.amber.shade300, // <-- darker amber (more saturated)
+                          const Color(0xFFFFF8E1), // <-- keep pale yellow (amber.shade50)
+                        ], // amber.shade100 & shade50
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       ),

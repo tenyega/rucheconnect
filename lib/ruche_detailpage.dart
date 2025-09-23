@@ -158,33 +158,91 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: Text('Ruche ${widget.rucheId}'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.amber,
+        foregroundColor: Colors.black,
+        elevation: 2,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchData),
-          IconButton(icon: const Icon(Icons.logout), onPressed: _signOut),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchData,
+            color: Colors.black,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _signOut,
+            color: Colors.black,
+          ),
         ],
       ),
-      body: _buildBody(),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.amber.shade100,
+              Colors.amber.shade50,
+            ],
+          ),
+        ),
+        child: _buildBody(),
+      ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+      );
+    }
 
     if (_errorMessage.isNotEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_errorMessage, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            // Show debug info when there's an error
-            Text(_debugInfo, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _fetchData, child: const Text('Réessayer')),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _debugInfo,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _fetchData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -194,11 +252,19 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Aucune donnée disponible.'),
+            Text(
+              'Aucune donnée disponible.',
+              style: TextStyle(
+                color: Colors.amber.shade800,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 16),
-            // Show path info even when no data
-            Text('Sur : ${widget.apiculteurId}/${widget.rucherId}/${widget.rucheId}',
-                style: const TextStyle(color: Colors.grey)),
+            Text(
+              'Sur : ${widget.apiculteurId}/${widget.rucherId}/${widget.rucheId}',
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+            ),
           ],
         ),
       );
@@ -208,21 +274,68 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-          // Show path info for debugging
-          Text('Path: ${widget.apiculteurId}/${widget.rucherId}/${widget.rucheId}',
-              style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildLegendItem(Colors.red, 'Température'),
-              const SizedBox(width: 16),
-              _buildLegendItem(Colors.blue, 'Humidité'),
-            ],
+          // Path info with updated styling
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Path: ${widget.apiculteurId}/${widget.rucherId}/${widget.rucheId}',
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+            ),
           ),
           const SizedBox(height: 16),
-          Expanded(child: _buildChart()),
+          // Legend with updated styling
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendItem(Colors.red, 'Température'),
+                const SizedBox(width: 24),
+                _buildLegendItem(Colors.blue, 'Humidité'),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
-          _buildDataTable(),
+          // Chart with updated container
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _buildChart(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Data table with updated styling
+          Expanded(
+            flex: 1,
+            child: _buildDataTable(),
+          ),
         ],
       ),
     );
@@ -231,7 +344,19 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
   Widget _buildChart() {
     return LineChart(
       LineChartData(
-        gridData: FlGridData(show: true),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          drawHorizontalLine: true,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: Colors.grey.shade300,
+            strokeWidth: 1,
+          ),
+          getDrawingVerticalLine: (value) => FlLine(
+            color: Colors.grey.shade300,
+            strokeWidth: 1,
+          ),
+        ),
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -240,7 +365,13 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
               getTitlesWidget: (value, _) {
                 if (value.toInt() >= 0 && value.toInt() < _dataPoints.length) {
                   final date = _dataPoints[value.toInt()].date;
-                  return Text(DateFormat('MM/dd').format(date), style: const TextStyle(fontSize: 10));
+                  return Text(
+                    DateFormat('MM/dd').format(date),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade700,
+                    ),
+                  );
                 }
                 return const SizedBox.shrink();
               },
@@ -250,13 +381,22 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
-              getTitlesWidget: (value, _) => Text(value.toInt().toString(), style: const TextStyle(fontSize: 10)),
+              getTitlesWidget: (value, _) => Text(
+                value.toInt().toString(),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade700,
+                ),
+              ),
             ),
           ),
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        borderData: FlBorderData(show: true),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(color: Colors.grey.shade400),
+        ),
         minX: 0,
         maxX: (_dataPoints.length - 1).toDouble(),
         lineBarsData: [
@@ -266,6 +406,10 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
             barWidth: 3,
             isCurved: true,
             dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Colors.red.withOpacity(0.1),
+            ),
           ),
           LineChartBarData(
             spots: List.generate(_dataPoints.length, (i) => FlSpot(i.toDouble(), _dataPoints[i].humidity)),
@@ -273,6 +417,10 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
             barWidth: 3,
             isCurved: true,
             dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Colors.blue.withOpacity(0.1),
+            ),
           ),
         ],
       ),
@@ -280,25 +428,115 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
   }
 
   Widget _buildDataTable() {
-    return Expanded(
-      child: Card(
-        elevation: 4,
-        child: SingleChildScrollView(
-          child: DataTable(
-            columnSpacing: 16,
-            columns: const [
-              DataColumn(label: Text('Date')),
-              DataColumn(label: Text('Temp. (°C)')),
-              DataColumn(label: Text('Humid. (%)')),
-            ],
-            rows: _dataPoints.map((point) {
-              return DataRow(cells: [
-                DataCell(Text(DateFormat('yyyy-MM-dd HH:mm').format(point.date))),
-                DataCell(Text(point.temperature.toStringAsFixed(1))),
-                DataCell(Text(point.humidity.toStringAsFixed(1))),
-              ]);
-            }).toList(),
-          ),
+    return Card(
+      elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.table_chart,
+                    color: Colors.amber.shade800,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Données détaillées',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: DataTable(
+                  columnSpacing: 16,
+                  headingRowColor: MaterialStateProperty.all(Colors.amber.shade50),
+                  columns: [
+                    DataColumn(
+                      label: Text(
+                        'Date',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
+                        'Temp. (°C)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
+                        'Humid. (%)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                  rows: _dataPoints.map((point) {
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            DateFormat('yyyy-MM-dd HH:mm').format(point.date),
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            point.temperature.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            point.humidity.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -307,9 +545,29 @@ class _RucheDetailPageState extends State<RucheDetailPage> {
   Widget _buildLegendItem(Color color, String label) {
     return Row(
       children: [
-        Container(width: 16, height: 16, color: color),
-        const SizedBox(width: 4),
-        Text(label),
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
