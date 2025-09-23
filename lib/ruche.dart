@@ -335,8 +335,8 @@ class _RucherRucheViewState extends State<RucherRucheViewState> {
     if (currentUser != null && currentUser.email != null) {
       final String email = currentUser.email!;
 
-      // Check if the user is an admin (email is test@gmail.com)
-      if (email == 'test@gmail.com') {
+      // Check if the user is an admin (email is mdolma@ymail.com)
+      if (email == 'mdolma@ymail.com') {
         setState(() {
           _userRole = UserRole.admin;
           _isLoading = false;
